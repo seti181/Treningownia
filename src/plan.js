@@ -405,7 +405,7 @@ function progress(st, today) {
     prev = d;
   });
   // wyzwania tygodnia i rekordy (punkty w dniu zaliczenia)
-  const chDone = [], recordEvents = BL ? BL.records(bent).events : [];
+  const chDone = [], recordEvents = BL ? BL.records(bent, st).events : [];
   if (BL) Object.keys(weeks).sort().forEach(w => BL.challenges(st, w, bent).forEach(c => { if (c.done) chDone.push({ id: c.id, name: c.name, d: c.doneDay, pts: c.pts, week: w }); }));
   chDone.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)).forEach((c, i) => {
     addDay(c.d, c.pts); byEntry[c.d + '|ch:' + c.id] = (byEntry[c.d + '|ch:' + c.id] || 0) + c.pts;
@@ -455,7 +455,7 @@ const RUN_LEVELS = [
 const RUN_STEP = [40, 60, 90, 120, 160, 220, 300, 400, 500, 600, 700, 800, 900, 1000, 1100];
 const CLIMB_T = { wspin: 1, palce: 1, sila: 1 };
 const CH_TRACK = { km: 'run', dlugi: 'run', palce2: 'climb', sila2: 'climb', drogi: 'climb' };
-const REC_TRACK = { km: 'run', tempo5: 'run', tempo10: 'run', tydzien: 'run', grade: 'climb', drogi: 'climb' };
+const REC_TRACK = { km: 'run', tempo5: 'run', tempo10: 'run', tydzien: 'run', grade: 'climb', drogi: 'climb', os: 'climb', zwis20: 'climb', zwis15: 'climb' };
 // Stopień na drabince: start na base, potem kolejne progi z steps.
 function ladder(names, steps, base, pts) {
   let i = Math.max(0, Math.min(names.length - 1, base)), left = Math.max(0, pts);

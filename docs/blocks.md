@@ -33,7 +33,7 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 - `cycle = { start (Monday), build, recover }`, default 3 weeks build + 1 week recovery from the first Monday (`phaseOf`). Shown on Dziś and Tydzień ("Budowanie · tydzień 2 z 3"), changed on the Bloki page ("Cykl treningowy"; "bez cyklu" turns it off).
 - A recovery week: the km challenge target drops to 60% of the 4-week average, the long-run challenge is swapped out, and no increases are proposed.
 - **Proposals** (`proposals`, card "Propozycje" on Dziś, "Przyjmij" / "Nie teraz"). Nothing changes on its own; a declined proposal comes back after 7 days (`props[id] = { s, d, at, text }`); accepted ones change the block (like the editor) or the day plan and show in Dziennik as "Zmiana planu".
-  - Hangboard: last 2 sessions of the block (since its last change) rated effort ≤ 6 and pain ≤ 2 → +2 s per hang up to 15 s, then 20 mm → 15 mm at 10 s.
+  - Hangboard: last 2 sessions of the block (since its last change) rated effort ≤ 6 and pain ≤ 2 → first 2 kg less weight off per step (while hanging with weight off), then +2 s per hang up to 15 s, then 20 mm → 15 mm at 10 s (the load is cleared, to be measured again).
   - Strength blocks: last 2 sessions effort ≤ 6, pain ≤ 2 → +1 rep in every reps item, +5 s on holds (max 60 s).
   - Easy runs: last 2 runs effort ≤ 4 → +5 min (max 60). Long run: last run effort ≤ 5 → +5 min (max 120).
   - 5 km test: after 6 logged runs, no test in 8 weeks → replace the next easy run from next Monday with the test.
@@ -43,8 +43,24 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 
 - HTML/CSS columns (`colChart`) and horizontal bars (`hBars`) in blocks-views.js: one colour per chart (running `--p2`, climbing `--p4`), bars from zero, a readout row above the plot (tap a column; data-act `cc`, no re-render), axis labels every few columns, and a table under each chart.
 - Running (`runWeeks`, 12 weeks): km per week, longest run per week, predicted half marathon per week (dots, faster is higher, dashed 1:20 line).
-- Climbing (`climbStats`): hardest grade per session over 90 days (pyramid), sessions by place over 90 days, hardest grade per month over 6 months (dots, dashed 7c line).
+- Climbing (`climbStats`): sent routes per grade over 90 days with their styles under each bar (pyramid; a session without a route list counts its hardest grade once), sessions by place over 90 days, hardest grade per month over 6 months (dots, dashed 7c line).
+- Fingers (`fingerWeeks`, "Palce w liczbach"): the strongest hang per week in % of body weight, one chart for 20 mm and one for 15 mm once there is a 15 mm session (dots, dashed 100% "pełna waga" line).
 - Careful with class names: the plot type class is `cc-k-bar` / `cc-k-dot`, because `cc-bar` is the bar itself.
+
+## Route list (climbing)
+
+- The climbing log form has "Drogi": pick a grade and a style, "Dodaj drogę"; each route can be removed (×). Styles (`STYLES`): **OS** (first try, no beta), **Flash** (first try with beta), **RP** (sent after tries), **Próba** (not sent).
+- With a list, the entry's `grade` (hardest sent route, `routeSum`) and `routes` (all routes, tries included) are filled in from it, and the manual fields hide. Without a list the old fields stay: hardest route and number of routes.
+- Shown as "max 6a+ · 3 drogi · 1 OS, 1 RP, 1 próba" on Dziś, Tydzień and Dziennik. Points per session are unchanged (owner, 24 November 2026). Climbing level and real form keep using the hardest sent grade.
+- Record "Najtrudniejszy OS albo flash" (`os`).
+- Projects (named routes with attempts) are for later.
+
+## Hangboard loads
+
+- A finger entry from a block with a 20 or 15 mm hang (`hangOf`) stores `mm` and `kg`: negative = weight off (feet on the bathroom scale while hanging: the reading is the weight off), 0 = full body weight, positive = added weight. **Added weight only after "Koniec rehabilitacji"**: the "Dociążenie" choice is hidden while rehab is on.
+- % of body weight = (body weight + kg) / body weight, with the weight logged nearest that day (`bodyKg`, up to 30 days away). Computed when shown, never stored.
+- The player logs the next load by itself (`hangKg`: the newer of the last session on that edge and the block's target `kg`, which a proposal sets); the done screen says it ("Zapisane: odciążenie 10 kg, 86% wagi") with "Zmień obciążenie" / "Dopisz obciążenie", which opens the log form on the load field (live readout "Wisisz na 62 kg z 72 kg: 86% wagi").
+- The Dziś card shows the load for the next session. Records: "Najmocniejszy zwis 20 mm" and "… 15 mm" (`zwis20`, `zwis15`, in % of body weight); losing weight shows up as progress.
 
 ## After rehab (`rehabDone`)
 
@@ -86,7 +102,7 @@ Four per Monday–Sunday week, shown on Dziś (compact), Tydzień (for the week 
 
 ## Personal records (`BLOCKS.records(entries)`)
 
-Longest run, best pace on runs of 5+ km and of 10+ km, most km in a week, hardest grade, most routes in one session. The first value only sets the bar; each later improvement is an event worth +10 (`REC_PTS`) on its day (`progress().recordEvents`). A week-km record counts once per week. Postęp lists the current records; Dziennik shows each record on its day; the toast after saving and the player's done screen name new records and challenges.
+Longest run, best pace on runs of 5+ km and of 10+ km, most km in a week, hardest grade, most routes in one session, hardest OS or flash, strongest hang on 20 mm and on 15 mm (% of body weight). The climbing and finger records count towards the climbing level. The first value only sets the bar; each later improvement is an event worth +10 (`REC_PTS`) on its day (`progress().recordEvents`). A week-km record counts once per week. Postęp lists the current records; Dziennik shows each record on its day; the toast after saving and the player's done screen name new records and challenges.
 
 ## Kinds
 
@@ -133,7 +149,8 @@ week:   null | { 0..6: [blockId, …] }, weekAt   // null = DEFAULT_WEEK
 days:   { 'YYYY-MM-DD': { items: [ { k, b, skip? } ], at } }   // a changed day replaces the pattern for that date
 blog:   { 'YYYY-MM-DD': { <k>: entry | { del: true, at } } }
 block = { id, name, kind, t, min, km?, note, gap?, items?, at }
-entry = { b, t, kind, name, done: true, at, dur?, km?, sec?, rpe?, pain?, grade?, routes?, place?, note?, partial? }
+entry = { b, t, kind, name, done: true, at, dur?, km?, sec?, rpe?, pain?, grade?, routes?, rl?: [ { g: grade, s: 'os' | 'fl' | 'rp' | 'pr' } ], place?, kg?: -100..60, mm?: 20 | 15, note?, partial? }
+hold item in a block: … kg? (target load set by an accepted proposal)
 ```
 
 - Item keys `k`: `p<i>-<blockId>` for items from the pattern, `a<time>` for added ones. A moved item keeps its key (with a suffix if the target day already has it). An entry logged outside the plan gets an added item, so it shows on its day.

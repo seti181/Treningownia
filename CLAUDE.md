@@ -15,9 +15,9 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 
 ## Status (24 November 2026)
 
-- Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; the Atlas with search and 10 categories; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts. Details per area in docs/; the table is in docs/roadmap.md.
+- Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; the Atlas with search and 10 categories; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts; a route list per climbing session (OS, Flash, RP, Próba); hangboard loads in % of body weight. Details per area in docs/; the table is in docs/roadmap.md.
 - Waiting on the owner: cloud sync (Firebase project), Android app (Capacitor OK and Android Studio), Strava/GPX (a watch), ending rehab (only they decide).
-- Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), a route list for climbing, hangboard loads.
+- Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), climbing projects, hangboard added weight after rehab.
 - Before each new item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
 
 ## Commands
@@ -78,7 +78,7 @@ dist/         build output, not in git
 - No native form submit: buttons are `type="button"` and Enter is handled in JS.
 - Colours come from the tokens in page.css. Traffic-light colours (`--ok`, `--warn`, `--bad`) mean good or bad, so never use them for weight going up or down.
 - Not medical advice. Don't change rehab doses, gates or pain rules unless the owner asks; the rehab plan document is the source of truth. New training plans start conservative and the owner confirms them.
-- While rehab is on: no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026). Pulling blocks are marked `afterRehab` and stay hidden until the owner uses "Koniec rehabilitacji" (`rehabDone`).
+- While rehab is on: no added weight on the hangboard (the log form hides "Dociążenie"), no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026). Pulling blocks are marked `afterRehab` and stay hidden until the owner uses "Koniec rehabilitacji" (`rehabDone`).
 - Progression is never silent: the app proposes, the owner accepts (docs/blocks.md → proposals). Running stays easy-only until the 5 km test and the owner's OK.
 - Before you finish: `npm test` passes, and after UI changes you have looked at the screenshots in shots/ (390px and 320px, light and dark).
 - Update the matching docs/ file, and this file if a command or rule changed, in the same change.

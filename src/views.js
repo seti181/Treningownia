@@ -264,7 +264,7 @@ function progressHTML(st, today, prog) {
     h += `<span class="rs rr${i === lr.i ? ' cur' : ''}${i < lr.i ? ' done' : ''}"><i style="width:${Math.round(f * 100)}%"></i><em>${esc(PL.RUN_LEVELS[i][1])}</em></span>`;
   }
   h += '</div>';
-  if (API.chartsRunHTML) h += `<h2 class="sub-h">Bieganie w liczbach</h2>${API.chartsRunHTML(st, today)}<h2 class="sub-h">Wspinanie w liczbach</h2>${API.chartsClimbHTML(st, today)}`;
+  if (API.chartsRunHTML) h += `<h2 class="sub-h">Bieganie w liczbach</h2>${API.chartsRunHTML(st, today)}<h2 class="sub-h">Wspinanie w liczbach</h2>${API.chartsClimbHTML(st, today)}<h2 class="sub-h">Palce w liczbach</h2>${API.chartsFingersHTML(st, today)}`;
   // odznaki
   const got = prog.badges.filter(b => b.d).length;
   h += `<h2 class="sub-h">Odznaki <span class="sub-count">${got} z ${prog.badges.length}</span></h2><ul class="badges">`;
@@ -592,7 +592,7 @@ function journalHTML(st, today, prog, ui) {
     });
     x.b.forEach(r => {
       const T = BLK().TRACKS[r.e.t];
-      const det = API.entryDetail ? API.entryDetail(r.e) : '';
+      const det = API.entryDetail ? API.entryDetail(r.e, st, d) : '';
       li += `<li class="jr-b" style="--c:var(${T.c})"><span class="h-s">${esc(r.e.name)} <small>${esc(T.name)}</small></span>${det ? `<span class="h-x">${esc(det)}</span>` : ''}<span class="h-pts">+${prog.byEntry[d + '|b:' + r.k] || 0}</span>` +
         `<button type="button" class="icon-btn h-ed" data-act="b-log" data-d="${d}" data-k="${esc(r.k)}" aria-label="Popraw wpis: ${esc(r.e.name)}">${ICON.chev}</button>${r.e.note ? `<span class="h-n">${esc(r.e.note)}</span>` : ''}</li>`;
     });

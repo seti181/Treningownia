@@ -138,6 +138,47 @@ const tp = BL.proposals(tr, '2026-11-28').find(p => /^test/.test(p.id));
 check('after 6 runs: plan the 5 km test on the next easy-run day', tp && tp.plan.d === '2026-11-30', tp && tp.text);
 BL.applyProposal(tr, tp, '2026-11-28', at(20));
 check('accepted: the test replaces that easy run', names(tr, '2026-11-30') === 'rozc-bieg,bieg-test5');
+
+// lista dróg: wycena i liczba dróg z listy, piramida według stylu, rekord OS/flash
+check('route list: hardest sent grade (attempts do not count) and the count', (() => { const r = BL.routeSum([{ g: '6a', s: 'os' }, { g: '6b', s: 'pr' }, { g: '6a+', s: 'rp' }, { g: '6a', s: 'fl' }]); return r.n === 4 && r.grade === '6a+' && r.os === '6a'; })());
+const cl = PL.defaults(MON), wsp = BL.getBlock(cl, 'wspinanie');
+BL.logBlock(cl, MON, 'c1', wsp, { rl: [{ g: '6a', s: 'os' }, { g: '6a', s: 'rp' }], grade: '6a', routes: 2 }, at(1));
+BL.logBlock(cl, '2026-11-24', 'c2', wsp, { rl: [{ g: '6a+', s: 'fl' }, { g: '6b', s: 'pr' }, { g: '6a', s: 'os' }], grade: '6a+', routes: 3 }, at(2));
+BL.logBlock(cl, '2026-11-25', 'c3', wsp, { grade: '5c', routes: 4 }, at(3));
+const cst = BL.climbStats(cl, '2026-11-25', 90, 6);
+check('pyramid counts sent routes by grade and style; a session without a list counts its hardest grade once', cst.byGrade['6a'] === 3 && cst.byGrade['6a+'] === 1 && !cst.byGrade['6b'] && cst.byGrade['5c'] === 1 && cst.byStyle['6a'].os === 2 && cst.byStyle['6a'].rp === 1, JSON.stringify(cst.byGrade));
+const cr = BL.records(BL.entries(cl));
+check('record: hardest OS or flash beaten', cr.events.some(e => e.id === 'os' && e.text === '6a+') && cr.best.os.text === '6a+', cr.events.map(e => e.id).join());
+const clean2 = S.sanitize(JSON.parse(JSON.stringify(cl)), MON);
+check('route list survives sanitize, bad routes dropped', S.canon(clean2.blog) === S.canon(cl.blog) && !S.sanitize({ blog: { [MON]: { c1: Object.assign({}, cl.blog[MON].c1, { rl: [{ g: '9z', s: 'os' }, { g: '6a', s: 'xx' }] }) } } }, MON).blog[MON].c1.rl);
+
+// chwytotablica: obciążenie, procent wagi, propozycje, rekord
+const hb = PL.defaults(MON), hg = id => BL.getBlock(hb, id);
+check('hang: block palce-20 has a 20 mm hold', BL.hangOf(hg('palce-20')).mm === 20 && !BL.hangOf(hg('sila-pompki')));
+check('hang: no default load before the first session', BL.hangKg(hb, hg('palce-20')) === null);
+PL.setWeight(hb, '2026-11-20', 72, at(0));
+BL.logBlock(hb, MON, 'z1', hg('palce-20'), { rpe: 5, pain: 0, kg: -10, mm: 20 }, at(1));
+check('hang: % of body weight from the nearest weight (72 kg, 10 kg off = 86%)', BL.hangPct(hb, MON, BL.entryOf(hb, MON, 'z1')) === 86 && BL.kgText(-10) === 'odciążenie 10 kg' && BL.kgText(0) === 'pełna waga');
+check('hang: next default load = last session', BL.hangKg(hb, hg('palce-20')) === -10);
+BL.logBlock(hb, '2026-11-25', 'z2', hg('palce-20'), { rpe: 6, kg: -10, mm: 20 }, at(2));
+const hp = BL.proposals(hb, '2026-11-25').find(p => /^palce/.test(p.id));
+check('two easy sessions with weight off: 2 kg less off first (before longer hangs)', hp && hp.edit.kg === -8 && hp.edit.hold == null, hp && hp.text);
+BL.applyProposal(hb, hp, '2026-11-25', at(3));
+check('accepted: the block holds the new load, the next default is -8 kg', hg('palce-20').items[1].kg === -8 && BL.hangKg(hb, hg('palce-20')) === -8);
+BL.logBlock(hb, '2026-11-27', 'z3', hg('palce-20'), { rpe: 5, kg: -8, mm: 20 }, at(4));
+const hr = BL.records(BL.entries(hb), hb);
+check('record: strongest 20 mm hang in % of body weight', hr.best.zwis20.text === '89% wagi' && hr.events.some(e => e.id === 'zwis20'), JSON.stringify(hr.best.zwis20));
+const fw = BL.fingerWeeks(hb, '2026-11-29', 2);
+check('finger chart data: best % per week', fw[1].p20 === 89 && fw[1].p15 === null && fw[0].p20 == null, JSON.stringify(fw));
+const hz = PL.defaults(MON);
+BL.logBlock(hz, MON, 'y1', BL.getBlock(hz, 'palce-20'), { rpe: 5, kg: 0, mm: 20 }, at(1)); BL.logBlock(hz, '2026-11-24', 'y2', BL.getBlock(hz, 'palce-20'), { rpe: 5, kg: 0, mm: 20 }, at(2));
+check('full body weight: proposals go on to longer hangs', (BL.proposals(hz, '2026-11-24').find(p => /^palce/.test(p.id)) || {}).edit.hold === 12);
+const clean3 = S.sanitize(JSON.parse(JSON.stringify(hb)), MON);
+check('load and edge survive sanitize, block target too', clean3.blog[MON].z1.kg === -10 && clean3.blog[MON].z1.mm === 20 && clean3.blocks['palce-20'].items[1].kg === -8);
+const ha = S.sanitize({}, MON), hb2 = S.sanitize({}, MON);
+BL.logBlock(ha, MON, 'z1', BL.getBlock(ha, 'palce-20'), { kg: -6, mm: 20 }, at(10));
+BL.logBlock(hb2, MON, 'z1', BL.getBlock(hb2, 'palce-20'), { kg: -4, mm: 20 }, at(11));
+check('merge: the later load entry wins', S.merge(ha, hb2).blog[MON].z1.kg === -4 && S.merge(hb2, ha).blog[MON].z1.kg === -4);
 const cs = S.sanitize(JSON.parse(JSON.stringify(cy)), MON);
 check('cycle and decisions survive sanitize and merge', cs.cycle.build === 3 && Object.keys(cs.props).length === 1 && Object.keys(S.merge(S.sanitize({}, MON), cs).props).length === 1);
 

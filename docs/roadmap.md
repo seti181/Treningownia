@@ -31,6 +31,8 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Points, badges, day streaks with one rest day a week, weekly challenges, personal records | done | blocks.md |
 | Two levels (climbing from 6a, running to 1:20) with real-form lines and a level-up celebration | done | blocks.md |
 | Charts: km per week, longest run, half-marathon trend; grade pyramid, places, hardest grade per month | done | blocks.md |
+| Route list per climbing session (grade and style: OS, Flash, RP, Próba), pyramid by style, OS/flash record | done | blocks.md |
+| Hangboard loads: weight off or added, % of body weight, finger chart, hang records, proposals take 2 kg less off first | done | blocks.md |
 | Cloud sync (Firebase over REST) | built and tested against a fake; waits for the owner's Firebase project | sync.md |
 
 ## The approved plan of 24 November 2026
@@ -45,8 +47,8 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 1. **Use it for a couple of weeks**, then tune: points per block, challenge targets, proposal steps. Real phones may show things tests can't (voice, vibration, wake lock, installing).
 2. **The 5 km test (mid-December 2026):** the app proposes it after 6 logged runs; after the test, decide with the owner when tempo, interval and stride blocks join the week.
 3. **Race plan for the half marathon** (possibly Porto, September 2027): phases counted back from race day (base, build, peak, taper), weekly long-run and volume targets, race-pace sessions.
-4. **Climbing details:** a route list per session (each route's grade and style), so the pyramid shows routes, not only the hardest of each session; projects.
-5. **Hangboard loads:** log added or removed weight (feet on the chair, scale), so loads can be shown relative to body weight.
+4. **Climbing projects:** named routes you're working on (grade, place), attempts counted from the route list, the send date.
+5. **Hangboard after rehab:** added weight unlocks with "Koniec rehabilitacji"; then decide steps for added weight with the owner.
 
 ## Open questions
 
@@ -79,3 +81,4 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-24: item 4 built: level-up celebration, one rest day a week keeps the streak, weight pace and goal date, a note when losing more than 1% a week for two weeks.
 - 2026-11-24: item 5, partly: the "Koniec rehabilitacji" switch and the locked pull-up block; sync, the Android app and Strava wait on the owner.
 - 2026-11-24: Atlas search and categories, at the owner's request: a search box in the sticky bar (name, dose, tips, category; ignores case and Polish letters, matches word stems), the block exercises split into five categories, the animation buttons moved under the intro.
+- 2026-11-24: items 4 and 5 of Next built, with the owner's go: a route list per climbing session (OS, Flash, RP, Próba; grade and count come from the list; points per session unchanged; projects later) and hangboard loads (weight off with feet on the bathroom scale, % of body weight from the nearest weight entry, no added weight while rehab is on, proposals take off 2 kg less first). Fixed: a session under 30 s opened its log form with "0" minutes, which the form then refused.

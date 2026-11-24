@@ -475,7 +475,26 @@ function blockAction(act, b, t) {
     case 'wk-prev': case 'wk-next': ui.wkOff = (ui.wkOff || 0) + (act === 'wk-next' ? 1 : -1); Object.assign(ui, { wkOpen: '', wkMove: '', wkAdd: '' }); renderPanel('tydzien'); return true;
     // wpis
     case 'lg-new': openLog(t, '', true); return true;
-    case 'lg-set': { const p = b.dataset.v.split(':'), f = ui.lg.f; const v = p[0] === 'place' ? p[1] : +p[1]; f[p[0]] = f[p[0]] === v ? null : v; renderPanel('wpis'); return true; }
+    case 'lg-set': {
+      const p = b.dataset.v.split(':'), f = ui.lg.f, txt = ['place', 'rs', 'dir'].indexOf(p[0]) >= 0, v = txt ? p[1] : +p[1];
+      // styl drogi i rodzaj obciążenia zawsze mają wartość; reszta odklikuje się drugim dotknięciem
+      f[p[0]] = f[p[0]] === v && p[0] !== 'rs' && p[0] !== 'dir' ? null : v;
+      renderPanel('wpis');
+      if (p[0] === 'dir') focusIn('#lg-kg');
+      return true;
+    }
+    case 'lg-radd': {
+      const f = ui.lg.f;
+      f.rl = (f.rl || []).concat(f.rl && f.rl.length >= 60 ? [] : [{ g: f.rg, s: f.rs }]);
+      renderPanel('wpis'); focusIn('[data-act="lg-radd"]');
+      return true;
+    }
+    case 'lg-rdel': {
+      const f = ui.lg.f;
+      f.rl = (f.rl || []).filter((r, i) => i !== +b.dataset.v);
+      renderPanel('wpis'); focusIn(f.rl.length ? '.rl-list li:nth-child(' + Math.min(+b.dataset.v + 1, f.rl.length) + ') [data-act="lg-rdel"]' : '#lg-rg');
+      return true;
+    }
     case 'lg-save': saveLog(); return true;
     case 'lg-cancel': closeLog(); return true;
     case 'lg-del': { const lg = ui.lg; BL.delLog(state, lg.d, lg.k, now()); commit(); toast('Wpis usunięty'); closeLog(); return true; }
@@ -561,15 +580,21 @@ function openLog(d, k, adhoc) {
   else if (k) { const it = BL.dayItems(state, d).find(x => x.k === k); bid = it ? it.b : null; }
   if (!bid) bid = adhoc ? 'bieg-spokojny' : null;
   if (!bid) return;
-  const f = { km: '', time: '', min: '', rpe: null, pain: null, grade: '', routes: '', place: null, note: '' };
+  const f = { km: '', time: '', min: '', rpe: null, pain: null, grade: '', routes: '', place: null, note: '', rl: [], rg: state.climbBase || '6a', rs: 'rp', kg: '', dir: 'off' };
   if (e) Object.assign(f, {
-    km: e.km ? BL.fmtKm(e.km) : '', time: e.sec ? BL.fmtDur(e.sec) : '', min: e.dur && !e.sec ? String(Math.round(e.dur / 60)) : '',
-    rpe: e.rpe == null ? null : e.rpe, pain: e.pain == null ? null : e.pain, grade: e.grade || '', routes: e.routes ? String(e.routes) : '', place: e.place || null, note: e.note || ''
+    km: e.km ? BL.fmtKm(e.km) : '', time: e.sec ? BL.fmtDur(e.sec) : '', min: e.dur && !e.sec ? String(Math.max(1, Math.round(e.dur / 60))) : '',
+    rpe: e.rpe == null ? null : e.rpe, pain: e.pain == null ? null : e.pain, grade: e.grade || '', routes: e.routes ? String(e.routes) : '', place: e.place || null, note: e.note || '',
+    rl: e.rl ? e.rl.map(r => ({ g: r.g, s: r.s })) : []
   });
+  if (f.rl.length) f.rg = f.rl[f.rl.length - 1].g;
+  // obciążenie zwisu: z wpisu albo domyślne (ostatni trening / przyjęta propozycja)
+  const blk = BL.getBlock(state, bid);
+  const kg0 = e ? (typeof e.kg === 'number' ? e.kg : null) : (blk ? BL.hangKg(state, blk) : null);
+  if (kg0 != null) { f.kg = BL.kgNum(kg0); f.dir = kg0 > 0 ? 'add' : 'off'; }
   ui.lg = { d, k, b: bid, adhoc: !!adhoc, edit: !!e, back: tab === 'wpis' ? (ui.lg && ui.lg.back) || 'dzis' : tab, f, err: '' };
   stale.wpis = true;
   showTab('wpis');
-  focusIn(adhoc ? '#lg-date' : '#lg-km, #lg-min');
+  focusIn(adhoc ? '#lg-date' : '#lg-km, #lg-kg, #lg-min');
 }
 function closeLog() {
   const back = (ui.lg && ui.lg.back) || 'dzis';
@@ -596,7 +621,30 @@ function saveLog() {
     if (f.min && sec == null) { fail('min', '#lg-min'); return; }
     if (sec != null) data.dur = sec;
     else if (b.kind === 'timed') data.dur = BL.blockSeconds(b);
-    if (b.kind === 'climb') { if (f.grade) data.grade = f.grade; if (/^\d{1,3}$/.test(String(f.routes || '').trim())) data.routes = +f.routes; if (f.place) data.place = f.place; }
+    if (b.kind === 'climb') {
+      if (f.rl && f.rl.length) {
+        // z listy dróg: liczba dróg i najtrudniejsza przejdzona liczą się same
+        const rs = BL.routeSum(f.rl);
+        data.rl = f.rl; data.routes = rs.n;
+        if (rs.grade) data.grade = rs.grade;
+      } else {
+        if (f.grade) data.grade = f.grade;
+        if (/^\d{1,3}$/.test(String(f.routes || '').trim())) data.routes = +f.routes;
+      }
+      if (f.place) data.place = f.place;
+    }
+    const hg = BL.hangOf(b);
+    if (hg) {
+      const old = lg.edit ? BL.entryOf(state, lg.d, lg.k) : null;
+      data.mm = (old && old.mm) || hg.mm;
+      const raw = String(f.kg == null ? '' : f.kg).trim().replace(',', '.');
+      if (raw) {
+        if (!/^\d{1,3}(\.\d)?$/.test(raw) || +raw > 60) { fail('kg', '#lg-kg'); return; }
+        // dociążenie tylko po rehabilitacji (stary wpis z dociążeniem zostaje, jak był)
+        data.kg = f.dir === 'add' && (state.rehabDone || (old && old.kg > 0)) ? +raw : -(+raw);
+        if (data.kg === 0) data.kg = 0;
+      }
+    }
   }
   const before = PL.progress(state, t);
   let k = lg.k;
@@ -787,6 +835,7 @@ document.addEventListener('change', e => {
   else if (n.id === 'lg-b' && ui.lg) { ui.lg.b = n.value; ui.lg.err = ''; renderPanel('wpis'); }
   else if (n.id === 'lg-date' && ui.lg) ui.lg.d = n.value;
   else if (n.id === 'lg-grade' && ui.lg) ui.lg.f.grade = n.value;
+  else if (n.id === 'lg-rg' && ui.lg) ui.lg.f.rg = n.value;
   else if ((n.id === 'ed-t' || n.id === 'ed-kind') && ui.ed) { ui.ed[n.id === 'ed-t' ? 't' : 'kind'] = n.value; if (!ui.ed.items) ui.ed.items = []; renderPanel('blok'); }
   else if (n.classList && n.classList.contains('ed-f') && n.tagName === 'SELECT' && ui.ed) {
     const it = ui.ed.items[+n.dataset.i];
@@ -803,10 +852,14 @@ document.addEventListener('input', e => {
   else if (n.id === 'w-add-date') { ui.wDate = n.value; paintAddHint(); }
   else if (n.id === 'w-goal-kg') { ui.wGoal = n.value; clearErr(n, 'goal'); }
   else if (n.id === 'l-email') ui.lEmail = n.value;
-  else if (ui.lg && /^lg-(km|time|min|routes|note|date)$/.test(n.id)) {
+  else if (ui.lg && /^lg-(km|time|min|routes|note|date|kg)$/.test(n.id)) {
     const fld = n.id.slice(3);
     if (fld === 'date') ui.lg.d = n.value; else ui.lg.f[fld] = n.value;
     if (ui.lg.err) { ui.lg.err = ''; n.removeAttribute('aria-invalid'); const hh = $('lg-h'); if (hh) { hh.classList.remove('is-err'); hh.removeAttribute('role'); hh.textContent = ''; } }
+    if (fld === 'kg') {
+      const kp = $('lg-kgp'), v = parseFloat(String(ui.lg.f.kg).replace(',', '.'));
+      if (kp) kp.innerHTML = V.kgLine(state, ui.lg.d, String(ui.lg.f.kg).trim() === '' || !isFinite(v) ? null : (ui.lg.f.dir === 'add' ? v : -v));
+    }
     if (fld === 'km' || fld === 'time') { const pc = $('lg-pace'); const km = BL.parseKm(ui.lg.f.km), sec = BL.parseTime(ui.lg.f.time); if (pc) pc.innerHTML = km && sec ? 'Tempo: <b>' + BL.pace(km, sec) + '</b>' : 'Tempo policzy się samo.'; }
   } else if (ui.ed && /^ed-(name|note|min|km|gap)$/.test(n.id)) ui.ed[n.id.slice(3)] = n.value;
   else if (ui.ed && n.classList && n.classList.contains('ed-f') && n.tagName === 'INPUT') { const it = ui.ed.items[+n.dataset.i]; if (it) it[n.dataset.f] = n.value; }
@@ -1253,6 +1306,8 @@ function finish(partial) {
     const b = BL.getBlock(state, P.session.blockId) || { id: P.session.blockId, t: P.session.track, kind: 'timed', name: P.session.title };
     const data = { dur: secs, partial };
     if (P.session.run) data.sec = P.measured || secs;
+    const hg = BL.hangOf(b);
+    if (hg) { data.mm = hg.mm; const kg = BL.hangKg(state, b); if (kg != null) data.kg = kg; }
     BL.logBlock(state, P.date, P.session.blockKey, b, data, now());
     commit();
   } else if (!P.practice) {
@@ -1274,12 +1329,28 @@ function finish(partial) {
   $('dn-note-wrap').hidden = P.practice;
   el.dnSaved.textContent = P.single ? 'Ćwiczenia z atlasu się nie zapisują i nie dają punktów.'
     : P.practice ? 'Próba: nic się nie zapisuje. Plan zaczyna się ' + PL.longDate(state.start) + '.'
-    : P.session.run ? 'Zapisane. Dopisz dystans, a policzę tempo.' : P.session.blockKey ? 'Zapisane w dzienniku.'
+    : P.session.run ? 'Zapisane. Dopisz dystans, a policzę tempo.' : hangSaved() ? hangSaved() : P.session.blockKey ? 'Zapisane w dzienniku.'
     : 'Zapisane. Jutro rano zapytam, jak bark po treningu.';
-  const rl = $('dn-runlog');
-  if (rl) rl.hidden = !(P.session.run && !P.practice);
+  const rl = $('dn-runlog'), he = P.practice ? null : hangEntry();
+  if (rl) {
+    rl.hidden = !((P.session.run || he) && !P.practice);
+    rl.textContent = P.session.run ? 'Dopisz dystans' : he && typeof he.kg === 'number' ? 'Zmień obciążenie' : 'Dopisz obciążenie';
+  }
   paintGain();
   el.dnTitle.focus({ preventScroll: true });
+}
+// Wpis treningu palców ze zwisem (null dla innych sesji).
+function hangEntry() {
+  if (!P.session.blockKey) return null;
+  const e = logEntry();
+  return e && e.mm ? e : null;
+}
+function hangSaved() {
+  const e = P.practice ? null : hangEntry();
+  if (!e) return '';
+  if (typeof e.kg !== 'number') return 'Zapisane. Dopisz obciążenie, a policzę % wagi.';
+  const p = BL.hangPct(state, P.date, e);
+  return 'Zapisane: ' + BL.kgText(e.kg) + (p ? ', ' + p + '% wagi' : '') + '. Inne? Zmień poniżej.';
 }
 function paintGain() {
   const box = $('dn-pts');

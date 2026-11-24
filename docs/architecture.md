@@ -117,7 +117,7 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 | `tests/test-offline.js` | the page opened as a file with a hanging network: renders, a full session, saves, reopens |
 | `tests/test-pwa.js` | served on localhost: manifest and icons, the service worker takes control, then with the server stopped and the browser offline the app still loads and saves |
 | `tests/test-app.js` | every tab and page, the back button, arrow keys, break alert, restart, manual stage, a full session with points, the journal, a single atlas exercise, dark desktop, 320px, the weight flows (scenarios 7 and 8) |
-| `tests/test-blocks.js` | a Tuesday on the phone: block cards, a timed block in the player, logging a climb and yesterday's run (pace, errors, Enter), moving, adding, skipping, other weeks, Mój tydzień, editing and creating blocks, the journal entry outside the plan, Postęp; 320px and dark |
+| `tests/test-blocks.js` | a Tuesday on the phone: block cards, a timed block in the player, logging a climb and yesterday's run (pace, errors, Enter), hangboard load from the done screen (% of body weight, errors), a climb with a route list (add, remove, styles), the finger chart and new records, moving, adding, skipping, other weeks, Mój tydzień, editing and creating blocks, the journal entry outside the plan, Postęp; 320px and dark |
 | `tests/test-run.js` | the run player (segments, "Dopisz dystans"), the 5 km test timed to "Meta", training paces, the charts' readout, a progression proposal accepted on Dziś, the cycle setting, the level-up celebration, ending and undoing rehab |
 | `tests/shots-weight.js` | screenshots only, for looking at |
 

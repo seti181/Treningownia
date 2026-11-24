@@ -24,7 +24,22 @@ function summary(b) {
   }
   return b.note || '';
 }
-function detail(e) {
+// Style dróg sesji: „2 OS, 3 RP, 1 próba”.
+function styleCounts(rl) {
+  const c = {};
+  (rl || []).forEach(r => { c[r.s] = (c[r.s] || 0) + 1; });
+  return BL.STYLE_IDS.filter(s => c[s]).map(s => c[s] + ' ' + (s === 'pr' ? plural(c[s], 'próba', 'próby', 'prób') : BL.styleName(s).replace('Flash', 'flash'))).join(', ');
+}
+// Obciążenie zwisu: „20 mm · odciążenie 10 kg · 86% wagi”.
+function hangText(st, d, e) {
+  const out = [];
+  if (e.mm) out.push(e.mm + ' mm');
+  if (typeof e.kg === 'number') out.push(BL.kgText(e.kg));
+  const p = st ? BL.hangPct(st, d, e) : null;
+  if (p) out.push(p + '% wagi');
+  return out.join(' · ');
+}
+function detail(e, st, d) {
   const out = [];
   if (e.kind === 'run' || e.t === 'bieg') {
     if (e.km) out.push(BL.fmtKm(e.km) + ' km');
@@ -35,6 +50,10 @@ function detail(e) {
     if (e.place) out.push(e.place);
     if (e.grade) out.push('max ' + e.grade);
     if (e.routes) out.push(e.routes + ' ' + plural(e.routes, 'droga', 'drogi', 'dróg'));
+    if (e.rl && e.rl.length) out.push(styleCounts(e.rl));
+  } else if (e.t === 'palce' && e.mm) {
+    const t = hangText(st, d, e);
+    if (t) out.push(t);
   }
   if (!e.sec && e.dur) out.push(Math.max(1, Math.round(e.dur / 60)) + ' min');
   if (e.rpe != null) out.push('wysiłek ' + e.rpe + '/10');
@@ -60,9 +79,9 @@ function challengesHTML(list, opts) {
   return h + '</section>';
 }
 function recordsHTML(st, today) {
-  const r = BL.records(BL.entries(st));
+  const r = BL.records(BL.entries(st), st);
   const list = BL.REC_DEFS.filter(d => r.best[d.id]);
-  if (!list.length) return '<p class="empty">Rekordy pojawią się po pierwszych biegach z dystansem i czasem oraz wspinaniach z wyceną i liczbą dróg. Pobity rekord to +' + BL.REC_PTS + ' pkt.</p>';
+  if (!list.length) return '<p class="empty">Rekordy pojawią się po pierwszych biegach z dystansem i czasem, wspinaniach z drogami i treningach palców z obciążeniem. Pobity rekord to +' + BL.REC_PTS + ' pkt.</p>';
   return '<ul class="recs">' + list.map(d => {
     const b = r.best[d.id];
     return `<li class="card rec"><span class="rec-l">${esc(d.name)}</span><b class="rec-v">${esc(b.text)}</b><span class="rec-d">${esc(cap(relDay(b.d, today)))}</span></li>`;
@@ -99,7 +118,7 @@ function colChart(o) {
 function hBars(title, color, rows, unit) {
   const max = Math.max.apply(null, rows.map(r => r.n).concat([1]));
   return `<figure class="cc hb" style="--cc:var(${color})"><figcaption class="cc-h">${esc(title)}</figcaption>` + (rows.length
-    ? `<ul class="hb-l">${rows.map(r => `<li><span class="hb-k">${esc(r.k)}</span><span class="hb-b"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></span><span class="hb-n">${r.n}${unit ? ' ' + esc(unit) : ''}</span></li>`).join('')}</ul>`
+    ? `<ul class="hb-l">${rows.map(r => `<li><span class="hb-k">${esc(r.k)}</span><span class="hb-b"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></span><span class="hb-n">${r.n}${unit ? ' ' + esc(unit) : ''}</span>${r.sub ? `<span class="hb-s">${esc(r.sub)}</span>` : ''}</li>`).join('')}</ul>`
     : '<p class="empty">Brak danych z tego okresu.</p>') + '</figure>';
 }
 function chartsRunHTML(st, today) {
@@ -119,13 +138,31 @@ function chartsRunHTML(st, today) {
     : `<figure class="cc"><figcaption class="cc-h">Przewidywany półmaraton</figcaption><p class="empty">Pojawi się po pierwszym biegu od 3 km z czasem.</p></figure>`;
   return h + '</div>';
 }
+// Palce: najmocniejszy zwis w tygodniu w procentach wagi (100% = pełna waga).
+function chartsFingersHTML(st, today) {
+  const ws = BL.fingerWeeks(st, today, 12);
+  const sh = w => PL.parse(w.from).getDate() + '.' + (PL.parse(w.from).getMonth() + 1);
+  const lab = w => 'Tydzień od ' + dayMon(w.from);
+  let h = '<div class="charts">';
+  [20, 15].forEach(mm => {
+    const f = 'p' + mm, got = ws.filter(w => w[f] != null).map(w => w[f]);
+    if (!got.length && mm === 15) return;
+    h += got.length
+      ? colChart({ id: 'cc-z' + mm, title: 'Zwis ' + mm + ' mm, % wagi', color: '--p3', kind: 'dot', axis: v => Math.round(v) + '%',
+        lo: Math.min.apply(null, got.concat([100])) - 5, hi: Math.max.apply(null, got.concat([100])) + 5, ref: { val: 100, label: 'pełna waga' },
+        pts: ws.map(w => ({ short: sh(w), label: lab(w), val: w[f], text: w[f] != null ? w[f] + '% wagi' : '' })) })
+      : `<figure class="cc"><figcaption class="cc-h">Zwis ${mm} mm: % wagi</figcaption><p class="empty">Pojawi się po treningu palców z zapisanym obciążeniem i wagą z tych dni.</p></figure>`;
+  });
+  return h + '</div>';
+}
 const MON_SHORT = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
 function chartsClimbHTML(st, today) {
   const cs = BL.climbStats(st, today, 90, 6);
-  const grades = BL.GRADE_LIST.filter(g => cs.byGrade[g]).reverse().map(g => ({ k: g, n: cs.byGrade[g] }));
+  const subOf = g => { const s = cs.byStyle[g]; return s ? styleCounts(Object.keys(s).reduce((a, k) => a.concat(Array(s[k]).fill({ s: k })), [])) : ''; };
+  const grades = BL.GRADE_LIST.filter(g => cs.byGrade[g]).reverse().map(g => ({ k: g, n: cs.byGrade[g], sub: subOf(g) }));
   const places = BL.PLACES.concat(['Bez miejsca']).filter(p => cs.byPlace[p]).map(p => ({ k: p, n: cs.byPlace[p] }));
   let h = '<div class="charts">';
-  h += hBars('Najtrudniejsza droga sesji, 90 dni', '--p4', grades, '');
+  h += hBars('Przejścia według wyceny, 90 dni', '--p4', grades, '');
   h += hBars('Gdzie się wspinasz, 90 dni', '--p4', places, '');
   const got = cs.monthly.filter(m => m.i >= 0);
   h += got.length
@@ -146,6 +183,22 @@ function runInfo(st, b, today) {
   let h = `<p class="blk-pace">${esc(BL.paceText(b, pc))}</p>`;
   if (b.after === 'test' && !pc) h += `<p class="blk-warn">Na razie tylko spokojne biegi: ten blok ma sens po teście 5 km.</p>`;
   return h;
+}
+// Obciążenie na zwisy (z ostatniego treningu albo przyjętej propozycji).
+function hangInfo(st, b, today) {
+  const h = BL.hangOf(b);
+  if (!h) return '';
+  const kg = BL.hangKg(st, b);
+  if (kg == null) return `<p class="blk-pace">Obciążenie: zapisz po treningu, policzę % wagi</p>`;
+  const p = BL.hangPct(st, today, { kg });
+  return `<p class="blk-pace">Obciążenie: ${esc(BL.kgText(kg))}${p ? ' · ' + p + '% wagi' : ''}</p>`;
+}
+// Linia z obciążeniem dla formularza (na żywo, bez przebudowy).
+function kgLine(st, d, kg) {
+  if (kg == null) return 'Puste pole: bez obciążenia w dzienniku.';
+  const bw = BL.bodyKg(st, d);
+  if (!bw) return 'Zapisz wagę, a policzę % wagi.';
+  return 'Wisisz na <b>' + String(Math.round((bw + kg) * 10) / 10).replace('.', ',') + ' kg</b> z ' + String(bw).replace('.', ',') + ' kg: <b>' + Math.round((bw + kg) / bw * 100) + '% wagi</b>.';
 }
 // Etap cyklu (budowanie / odciążenie) jako jedna linia.
 function phaseLine(st, d) {
@@ -180,14 +233,14 @@ function todayBlocksHTML(st, today, prog) {
 <div class="sess-top"><p class="sess-label">${esc(TR[t].name)}${b && !e ? ' · ' + minsOf(b) : ''}</p><span class="sess-pts${e ? ' got' : ''}">${e ? '' : '+'}${pts} pkt</span></div>
 <h2 class="sess-title">${esc(name)}</h2>`;
     if (e) {
-      h += `<p class="sess-state ${painLevel(e.pain)}">${ICON.check}Zrobione${detail(e) ? ' · ' + esc(detail(e)) : ''}</p>${e.note ? `<p class="blk-note">${esc(e.note)}</p>` : ''}` +
+      h += `<p class="sess-state ${painLevel(e.pain)}">${ICON.check}Zrobione${detail(e, st, today) ? ' · ' + esc(detail(e, st, today)) : ''}</p>${e.note ? `<p class="blk-note">${esc(e.note)}</p>` : ''}` +
         `<div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-log" ${ds}>Popraw wpis</button></div>`;
     } else if (x.skip) {
       h += `<p class="sess-state">Pominięte</p><div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-skip" data-v="0" ${ds}>Przywróć</button></div>`;
     } else if (!b) {
       h += `<p class="sess-list">Tego bloku nie ma już w bibliotece.</p><div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-remove" ${ds}>Usuń z dnia</button></div>`;
     } else {
-      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${b.kind === 'climb' && BL.climbNote(st) ? `<p class="blk-warn">${esc(BL.climbNote(st))}</p>` : ''}`;
+      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${hangInfo(st, b, today)}${b.kind === 'climb' && BL.climbNote(st) ? `<p class="blk-warn">${esc(BL.climbNote(st))}</p>` : ''}`;
       h += timedRun(b)
         ? `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-start" ${ds}>${b.kind === 'run' ? 'Zacznij z zegarem' : 'Zacznij'}</button>`
         : `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-log" ${ds}>Zapisz trening</button>`;
@@ -233,7 +286,7 @@ function weekHTML(st, today, ui, prog) {
       const key = d + '|' + x.k, open = ui.wkOpen === key;
       const name = b ? b.name : (e && e.name) || 'Usunięty blok';
       const ds = `data-d="${d}" data-k="${esc(x.k)}"`;
-      const st2 = e ? 'zrobione' + (detail(e) ? ' · ' + detail(e) : '') : x.skip ? 'pominięte' : TR[t].name + (b ? ' · ' + minsOf(b) : '');
+      const st2 = e ? 'zrobione' + (detail(e, st, d) ? ' · ' + detail(e, st, d) : '') : x.skip ? 'pominięte' : TR[t].name + (b ? ' · ' + minsOf(b) : '');
       h += `<li class="wk-s${e ? ' is-done' : ''}${x.skip ? ' is-skip' : ''}"><span class="wk-k">${ttape(t)}</span><span class="wk-t"><b>${esc(name)}</b><small>${esc(st2)}</small></span>` +
         (e ? ICON.check : '') + `<button type="button" class="icon-btn" data-act="wk-open" ${ds} aria-expanded="${open ? 'true' : 'false'}" aria-label="Opcje: ${esc(name)}, ${esc(dayMon(d))}">${MORE}</button></li>`;
       if (open) {
@@ -308,17 +361,38 @@ function logFormHTML(st, today, ui) {
       `<label class="fld sm"><span>Czas</span><input type="text" id="lg-time" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="np. 34:10" value="${esc(f.time || '')}"${lg.err === 'time' ? ' aria-invalid="true"' : ''}></label>` +
       `<p class="lg-pace" id="lg-pace" aria-live="polite">${km && sec ? 'Tempo: <b>' + BL.pace(km, sec) + '</b>' : 'Tempo policzy się samo.'}</p></div>`;
   } else if (kind === 'climb') {
-    h += `<div class="fld"><span>Gdzie</span><div class="choices" role="group" aria-label="Gdzie">${BL.PLACES.map(p => `<button type="button" class="chip-btn sm" data-act="lg-set" data-v="place:${p}" aria-pressed="${f.place === p ? 'true' : 'false'}">${p}</button>`).join('')}</div></div>` +
-      `<div class="row"><label class="fld sm"><span>Czas (min)</span><input type="text" id="lg-min" inputmode="numeric" autocomplete="off" maxlength="4" value="${esc(f.min || '')}"${lg.err === 'min' ? ' aria-invalid="true"' : ''}></label>` +
-      `<label class="fld sm"><span>Najtrudniejsza droga</span><select id="lg-grade"><option value="">—</option>${BL.GRADE_LIST.map(g => `<option${f.grade === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
-      `<label class="fld sm"><span>Liczba dróg</span><input type="text" id="lg-routes" inputmode="numeric" autocomplete="off" maxlength="3" value="${esc(f.routes || '')}"></label></div>`;
+    const rl = f.rl || [], rs = BL.routeSum(rl);
+    h += `<div class="fld"><span>Gdzie</span><div class="choices" role="group" aria-label="Gdzie">${BL.PLACES.map(p => `<button type="button" class="chip-btn sm" data-act="lg-set" data-v="place:${p}" aria-pressed="${f.place === p ? 'true' : 'false'}">${p}</button>`).join('')}</div></div>`;
+    // lista dróg: wycena + styl + „Dodaj drogę”
+    h += `<fieldset class="fld routes"><legend>Drogi</legend>`;
+    if (rl.length) h += `<ol class="rl-list">${rl.map((r, i) => `<li class="${BL.SENT(r.s) ? '' : 'rl-pr'}"><span class="rl-n">${i + 1}.</span><b class="rl-g">${esc(r.g)}</b><span class="rl-s">${esc(BL.styleName(r.s))}</span><button type="button" class="icon-btn" data-act="lg-rdel" data-v="${i}" aria-label="Usuń drogę ${i + 1}: ${esc(r.g)} ${esc(BL.styleName(r.s))}">${ICON.x}</button></li>`).join('')}</ol>`;
+    h += `<div class="rl-add"><label class="fld sm"><span>Wycena</span><select id="lg-rg">${BL.GRADE_LIST.map(g => `<option${f.rg === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
+      `<div class="fld rl-st"><span id="lg-rs-l">Styl</span><div class="choices" role="group" aria-labelledby="lg-rs-l">${BL.STYLES.map(s => `<button type="button" class="chip-btn sm" data-act="lg-set" data-v="rs:${s.id}" aria-pressed="${f.rs === s.id ? 'true' : 'false'}">${s.name}</button>`).join('')}</div></div></div>` +
+      `<button type="button" class="chip-btn primary rl-go" data-act="lg-radd">${PLUS}Dodaj drogę</button>`;
+    h += `<p class="rl-sum" id="lg-rl-sum" aria-live="polite">${rl.length ? (rs.grade ? 'Najtrudniejsza przejdzona: <b>' + esc(rs.grade) + '</b> · ' : 'Bez przejścia · ') + rl.length + ' ' + plural(rl.length, 'droga', 'drogi', 'dróg') : 'OS: pierwsza próba bez wiedzy o drodze. Flash: pierwsza próba z wiedzą. RP: po próbach. Próba: bez przejścia.'}</p></fieldset>`;
+    h += `<div class="row"><label class="fld sm"><span>Czas (min)</span><input type="text" id="lg-min" inputmode="numeric" autocomplete="off" maxlength="4" value="${esc(f.min || '')}"${lg.err === 'min' ? ' aria-invalid="true"' : ''}></label>`;
+    if (!rl.length) h += `<label class="fld sm"><span>Najtrudniejsza droga</span><select id="lg-grade"><option value="">—</option>${BL.GRADE_LIST.map(g => `<option${f.grade === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
+      `<label class="fld sm"><span>Liczba dróg</span><input type="text" id="lg-routes" inputmode="numeric" autocomplete="off" maxlength="3" value="${esc(f.routes || '')}"></label>`;
+    h += '</div>';
+    if (!rl.length) h += `<p class="lg-note">Bez listy dróg wystarczy najtrudniejsza droga i liczba dróg.</p>`;
   } else {
+    // palce: obciążenie zwisu (odciążenie stopami na wadze; dociążenie dopiero po rehabilitacji)
+    const hg = b && BL.hangOf(b);
+    if (hg) {
+      const v = f.kg === '' || f.kg == null ? null : parseFloat(String(f.kg).replace(',', '.'));
+      const kg = v == null || !isFinite(v) ? null : (f.dir === 'add' ? v : -v);
+      h += `<fieldset class="fld hang"><legend>Obciążenie zwisu (${hg.mm} mm)</legend>`;
+      if (st.rehabDone || f.dir === 'add') h += `<div class="choices" role="group" aria-label="Rodzaj obciążenia"><button type="button" class="chip-btn sm" data-act="lg-set" data-v="dir:off" aria-pressed="${f.dir !== 'add' ? 'true' : 'false'}">Odciążenie</button><button type="button" class="chip-btn sm" data-act="lg-set" data-v="dir:add" aria-pressed="${f.dir === 'add' ? 'true' : 'false'}">Dociążenie</button></div>`;
+      h += `<div class="row"><label class="fld sm"><span>${f.dir === 'add' ? 'Dociążenie (kg)' : 'Odciążenie (kg)'}</span><input type="text" id="lg-kg" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="0" value="${esc(f.kg == null ? '' : String(f.kg))}"${lg.err === 'kg' ? ' aria-invalid="true"' : ''}></label>` +
+        `<p class="lg-pace" id="lg-kgp" aria-live="polite">${kgLine(st, lg.d, kg)}</p></div>`;
+      h += `<p class="lg-note">${f.dir === 'add' ? 'Pas z obciążeniem: wpisz, ile waży.' : 'Stopy na wadze łazienkowej podczas zwisu: ile pokazuje waga, tyle odciążasz. 0 = pełna waga.'}${st.rehabDone ? '' : ' Bez dociążania, dopóki trwa rehabilitacja.'}</p></fieldset>`;
+    }
     h += `<div class="row"><label class="fld sm"><span>Czas (min)</span><input type="text" id="lg-min" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="${b ? BL.blockMinutes(b) : ''}" value="${esc(f.min || '')}"${lg.err === 'min' ? ' aria-invalid="true"' : ''}></label></div>`;
   }
   h += `<div class="fld"><span id="lg-rpe-l">Wysiłek (1 lekko, 10 maksymalnie)</span>${chipRow('rpe', f.rpe, 1, 10, 'Wysiłek', false)}</div>`;
   if (b && b.t !== 'bieg') h += `<div class="fld"><span>Ból barku w trakcie (0–10)</span>${chipRow('pain', f.pain, 0, 10, 'Ból barku', true)}</div>`;
   h += `<label class="fld"><span>Notatka (opcjonalnie)</span><input type="text" id="lg-note" maxlength="200" autocomplete="off" value="${esc(f.note || '')}"></label>`;
-  const errTxt = { km: 'Wpisz dystans w kilometrach, np. 6,5.', time: 'Wpisz czas jako minuty:sekundy (34:10) albo godziny:minuty:sekundy.', min: 'Wpisz czas w minutach, np. 45.', b: 'Wybierz blok.' }[lg.err] || '';
+  const errTxt = { km: 'Wpisz dystans w kilometrach, np. 6,5.', time: 'Wpisz czas jako minuty:sekundy (34:10) albo godziny:minuty:sekundy.', min: 'Wpisz czas w minutach, np. 45.', b: 'Wybierz blok.', kg: 'Wpisz kilogramy, np. 10 albo 7,5 (najwyżej 60).' }[lg.err] || '';
   h += `<p class="wq-h${errTxt ? ' is-err' : ''}" id="lg-h"${errTxt ? ' role="alert"' : ''}>${esc(errTxt || (b ? '+' + ptsOf(b) + ' pkt za trening, +' + BL.RATE_PTS + ' za ocenę wysiłku lub bólu.' : ''))}</p>`;
   h += `<button type="button" class="go" data-act="lg-save">Zapisz</button><div class="choices"><button type="button" class="chip-btn" data-act="lg-cancel">Anuluj</button>${lg.edit ? '<button type="button" class="chip-btn danger" data-act="lg-del">Usuń wpis</button>' : ''}</div></form>`;
   return h;
@@ -408,6 +482,6 @@ function editorHTML(st, ui) {
   return h;
 }
 
-Object.assign(V, { chartsRunHTML, chartsClimbHTML, phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
+Object.assign(V, { chartsRunHTML, chartsClimbHTML, chartsFingersHTML, kgLine, hangText, phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
 if (typeof module !== 'undefined' && module.exports) module.exports = V;
 })(typeof window !== 'undefined' ? window : globalThis);

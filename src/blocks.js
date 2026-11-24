@@ -18,6 +18,22 @@ const TRACK_IDS = Object.keys(TRACKS);
 const KINDS = ['timed', 'run', 'climb', 'simple'];
 const RATE_PTS = 2, WEEK_PTS = 25, WEEK_RUNS = 3, WEEK_CLIMBS = 3;
 const PLACES = ['Hala', 'Ściana', 'Skała', 'TRS'];
+// Styl przejścia drogi. Próba = droga nieprzejdzona: liczy się do liczby dróg, nie do wyceny.
+const STYLES = [{ id: 'os', name: 'OS' }, { id: 'fl', name: 'Flash' }, { id: 'rp', name: 'RP' }, { id: 'pr', name: 'Próba' }];
+const STYLE_IDS = STYLES.map(s => s.id);
+const SENT = s => s === 'os' || s === 'fl' || s === 'rp';
+const styleName = id => (STYLES.find(s => s.id === id) || { name: id }).name;
+// Lista dróg sesji: liczba dróg, najtrudniejsza przejdzona, najtrudniejsza OS albo flash.
+function routeSum(rl) {
+  let best = -1, os = -1;
+  (rl || []).forEach(r => {
+    const i = GRADE_LIST.indexOf(r.g);
+    if (!SENT(r.s)) return;
+    best = Math.max(best, i);
+    if (r.s !== 'rp') os = Math.max(os, i);
+  });
+  return { n: (rl || []).length, grade: best >= 0 ? GRADE_LIST[best] : null, os: os >= 0 ? GRADE_LIST[os] : null };
+}
 const CLIMB_NOTE = 'Bez blokowania i dalekich sięgnięć lewą ręką, bez podciągania. Ból barku powyżej 3/10: zejdź z drogi.';
 const climbNote = st => (st.rehabDone ? '' : CLIMB_NOTE);
 
@@ -208,11 +224,12 @@ function setPattern(st, dw, list, now) {
 }
 
 // ---------- dziennik bloków ----------
-// data: { dur (s), km, sec, rpe, pain, grade, routes, place, note, partial }
+// data: { dur (s), km, sec, rpe, pain, grade, routes, rl: [{ g, s }], place, kg, mm, note, partial }
 function logBlock(st, d, k, b, data, now) {
   st.blog = st.blog || {};
   const e = { b: b.id, t: b.t, kind: b.kind, name: b.name, done: true, at: now || Date.now() };
-  ['dur', 'km', 'sec', 'rpe', 'pain', 'routes'].forEach(f => { if (typeof data[f] === 'number' && isFinite(data[f])) e[f] = data[f]; });
+  ['dur', 'km', 'sec', 'rpe', 'pain', 'routes', 'kg', 'mm'].forEach(f => { if (typeof data[f] === 'number' && isFinite(data[f])) e[f] = data[f]; });
+  if (Array.isArray(data.rl) && data.rl.length) e.rl = data.rl.map(r => ({ g: r.g, s: r.s }));
   ['grade', 'place', 'note'].forEach(f => { if (typeof data[f] === 'string' && data[f]) e[f] = data[f]; });
   if (data.partial) e.partial = true;
   (st.blog[d] = st.blog[d] || {})[k] = e;
@@ -234,6 +251,42 @@ function entryPoints(e) {
   if (e.rpe != null || e.pain != null) p += RATE_PTS;
   return p;
 }
+// ---------- chwytotablica: obciążenie ----------
+// kg we wpisie: ujemne = odciążenie (stopy na wadze łazienkowej), dodatnie = dociążenie (dopiero po rehabilitacji), 0 = pełna waga.
+// mm: listwa (20 albo 15). Procent wagi liczy się z wagi z najbliższego dnia, nigdy nie jest zapisywany.
+const HANG_MM = { 'zwis-20': 20, 'zwis-15': 15 };
+function hangOf(b) {
+  const items = (b && b.items) || [];
+  const i = items.findIndex(x => x.kind === 'hold' && HANG_MM[x.ex]);
+  return i < 0 ? null : { i, x: items[i], mm: HANG_MM[items[i].ex] };
+}
+// Obciążenie na następny trening: nowsze z dwóch (cel w bloku po przyjętej propozycji, ostatni wpis bloku na tej listwie).
+function hangKg(st, b) {
+  const h = hangOf(b);
+  if (!h) return null;
+  const last = entries(st).filter(x => x.e.b === b.id && typeof x.e.kg === 'number' && x.e.mm === h.mm).slice(-1)[0];
+  if (last && (last.e.at || 0) >= (b.at || 0)) return last.e.kg;
+  return typeof h.x.kg === 'number' ? h.x.kg : last ? last.e.kg : null;
+}
+// Waga z najbliższego dnia (najwyżej 30 dni od d); null bez danych.
+function bodyKg(st, d) {
+  let best = null, gap = 31;
+  Object.keys(st.weight || {}).forEach(k => {
+    const w = st.weight[k];
+    if (!w || w.del || typeof w.kg !== 'number') return;
+    const g = Math.abs(PL.diff(k, d));
+    if (g < gap || (g === gap && k < d)) { gap = g; best = w.kg; }
+  });
+  return best;
+}
+function hangPct(st, d, e) {
+  if (!e || typeof e.kg !== 'number') return null;
+  const bw = bodyKg(st, d);
+  return bw ? Math.round((bw + e.kg) / bw * 100) : null;
+}
+const kgNum = v => String(Math.round(Math.abs(v) * 10) / 10).replace('.', ',');
+const kgText = kg => (kg === 0 ? 'pełna waga' : (kg < 0 ? 'odciążenie ' : 'dociążenie ') + kgNum(kg) + ' kg');
+
 // Poniedziałek tygodnia, w którym jest dzień d.
 function weekStart(d) { return PL.addDays(d, -((PL.dow(d) + 6) % 7)); }
 function weekStats(st, d) {
@@ -320,16 +373,21 @@ const REC_DEFS = [
   { id: 'tempo10', name: 'Najlepsze tempo od 10 km' },
   { id: 'tydzien', name: 'Najwięcej km w tygodniu' },
   { id: 'grade', name: 'Najtrudniejsza droga' },
-  { id: 'drogi', name: 'Najwięcej dróg na jednym wspinaniu' }
+  { id: 'drogi', name: 'Najwięcej dróg na jednym wspinaniu' },
+  { id: 'os', name: 'Najtrudniejszy OS albo flash' },
+  { id: 'zwis20', name: 'Najmocniejszy zwis 20 mm' },
+  { id: 'zwis15', name: 'Najmocniejszy zwis 15 mm' }
 ];
 function recText(id, v) {
   if (id === 'km' || id === 'tydzien') return fmtKm(v) + ' km';
   if (id === 'tempo5' || id === 'tempo10') { const p = Math.round(v); return Math.floor(p / 60) + ':' + pad(p % 60) + '/km'; }
-  if (id === 'grade') return GRADE_LIST[v];
+  if (id === 'grade' || id === 'os') return GRADE_LIST[v];
+  if (id === 'zwis20' || id === 'zwis15') return v + '% wagi';
   return v + ' ' + (v === 1 ? 'droga' : v % 10 >= 2 && v % 10 <= 4 && (v % 100 < 12 || v % 100 > 14) ? 'drogi' : 'dróg');
 }
 // Rekordy z całego dziennika: aktualnie najlepsze wartości i zdarzenia „pobity rekord” (pierwsza wartość tylko ustawia poprzeczkę).
-function records(all) {
+// st (opcjonalnie): waga do rekordów zwisów w procentach wagi.
+function records(all, st) {
   const best = {}, events = [];
   const beat = (id, v, x, lower) => {
     const b = best[id];
@@ -361,6 +419,12 @@ function records(all) {
     if (e.t === 'wspin') {
       if (e.grade) beat('grade', GRADE_LIST.indexOf(e.grade), x, false);
       if (e.routes) beat('drogi', e.routes, x, false);
+      const os = e.rl ? routeSum(e.rl).os : null;
+      if (os) beat('os', GRADE_LIST.indexOf(os), x, false);
+    }
+    if (st && e.t === 'palce' && e.mm && !e.partial) {
+      const p = hangPct(st, x.d, e);
+      if (p) beat('zwis' + e.mm, p, x, false);
     }
   });
   return { best, events };
@@ -429,9 +493,13 @@ function proposals(st, today) {
     if (b.kind === 'timed' && b.t === 'palce') {
       const it = (b.items || []).findIndex(x => /^zwis-/.test(x.ex) && x.kind === 'hold');
       if (it < 0 || !easy(lastOf(st, b.id, 2, since), 6, 2)) return;
-      const x = b.items[it];
-      if (x.hold < 15) add({ id: 'palce:' + b.id + ':' + x.ex + ':' + x.hold, block: b.id, title: b.name, text: 'Zwisy ' + Math.min(15, x.hold + 2) + ' s zamiast ' + x.hold + ' s. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, hold: Math.min(15, x.hold + 2) } });
-      else if (x.ex === 'zwis-20') add({ id: 'palce:' + b.id + ':15mm', block: b.id, title: b.name, text: 'Czas na listwę 15 mm: zaczynasz od 10 s na zwis.', edit: { item: it, ex: 'zwis-15', hold: 10, name: b.name.replace('20 mm', '15 mm') } });
+      const x = b.items[it], kg = hangKg(st, b);
+      if (typeof kg === 'number' && kg < 0) {
+        // najpierw mniej odciążenia (po 2 kg), potem dłuższe zwisy, potem 15 mm
+        const nk = Math.min(0, Math.round((kg + 2) * 10) / 10);
+        add({ id: 'palce:' + b.id + ':kg:' + nk, block: b.id, title: b.name, text: (nk === 0 ? 'Zwisy bez odciążenia, na pełnej wadze' : 'Odciążenie ' + kgNum(nk) + ' kg zamiast ' + kgNum(kg) + ' kg') + '. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, kg: nk } });
+      } else if (x.hold < 15) add({ id: 'palce:' + b.id + ':' + x.ex + ':' + x.hold, block: b.id, title: b.name, text: 'Zwisy ' + Math.min(15, x.hold + 2) + ' s zamiast ' + x.hold + ' s. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, hold: Math.min(15, x.hold + 2) } });
+      else if (x.ex === 'zwis-20') add({ id: 'palce:' + b.id + ':15mm', block: b.id, title: b.name, text: 'Czas na listwę 15 mm: zaczynasz od 10 s na zwis.', edit: { item: it, ex: 'zwis-15', hold: 10, kg: null, name: b.name.replace('20 mm', '15 mm') } });
     } else if (b.kind === 'timed' && b.t === 'sila') {
       if (!easy(lastOf(st, b.id, 2, since), 6, 2)) return;
       const items = (b.items || []).map(x => (x.kind === 'reps' ? Object.assign({}, x, { reps: bumpReps(x.reps) }) : x.kind === 'hold' ? Object.assign({}, x, { hold: Math.min(60, x.hold + 5) }) : x));
@@ -468,6 +536,8 @@ function applyProposal(st, p, today, now) {
       if (p.edit.hold != null) x.hold = p.edit.hold;
       if (p.edit.ex) x.ex = p.edit.ex;
       if (p.edit.dur != null) x.dur = p.edit.dur;
+      if (p.edit.kg === null) delete x.kg;
+      else if (typeof p.edit.kg === 'number') x.kg = p.edit.kg;
     }
     if (p.edit.min != null) b.min = p.edit.min;
     if (p.edit.name) b.name = p.edit.name;
@@ -522,16 +592,23 @@ function runWeeks(st, today, n) {
   }
   return out;
 }
-// Wspinanie z ostatnich dni: najtrudniejsza droga sesji (piramida), miejsca, najtrudniejsza droga w miesiącach.
+// Wspinanie z ostatnich dni: przejścia według wyceny i stylu (piramida; sesja bez listy dróg liczy się jako jedna droga
+// o najtrudniejszej wycenie), miejsca, najtrudniejsza droga w miesiącach.
 function climbStats(st, today, days, months) {
   const from = PL.addDays(today, -(days - 1));
-  const byGrade = {}, byPlace = {};
+  const byGrade = {}, byPlace = {}, byStyle = {};
   let sessions = 0;
   const cl = entries(st).filter(x => x.e.t === 'wspin');
   cl.forEach(x => {
     if (x.d < from || x.d > today) return;
     sessions++;
-    if (x.e.grade) byGrade[x.e.grade] = (byGrade[x.e.grade] || 0) + 1;
+    if (x.e.rl && x.e.rl.length) x.e.rl.forEach(r => {
+      if (!SENT(r.s)) return;
+      byGrade[r.g] = (byGrade[r.g] || 0) + 1;
+      const s = byStyle[r.g] = byStyle[r.g] || {};
+      s[r.s] = (s[r.s] || 0) + 1;
+    });
+    else if (x.e.grade) byGrade[x.e.grade] = (byGrade[x.e.grade] || 0) + 1;
     const p = x.e.place || 'Bez miejsca';
     byPlace[p] = (byPlace[p] || 0) + 1;
   });
@@ -544,7 +621,22 @@ function climbStats(st, today, days, months) {
     cl.forEach(x => { if (x.d.slice(0, 7) === key && x.e.grade) best = Math.max(best, GRADE_LIST.indexOf(x.e.grade)); });
     monthly.push({ key, month: d.getMonth(), year: d.getFullYear(), grade: best >= 0 ? GRADE_LIST[best] : null, i: best });
   }
-  return { sessions, byGrade, byPlace, monthly };
+  return { sessions, byGrade, byStyle, byPlace, monthly };
+}
+// Tygodnie palców (od najstarszego): najmocniejszy zwis w procentach wagi na 20 mm i 15 mm.
+function fingerWeeks(st, today, n) {
+  const all = entries(st).filter(x => x.e.t === 'palce' && x.e.mm && !x.e.partial);
+  const cur = weekStart(today), out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const from = PL.addDays(cur, -7 * i), to = PL.addDays(from, 6), w = { from, to, p20: null, p15: null };
+    all.forEach(x => {
+      if (x.d < from || x.d > to) return;
+      const p = hangPct(st, x.d, x.e), f = 'p' + x.e.mm;
+      if (p && (w[f] == null || p > w[f])) w[f] = p;
+    });
+    out.push(w);
+  }
+  return out;
 }
 
 // ---------- czas, dystans, tempo ----------
@@ -577,7 +669,7 @@ function parseKm(s) {
 const GRADE_LIST = ['4a', '4b', '4c', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a'];
 
 const API = {
-  TRACKS, TRACK_IDS, KINDS, PLACES, CLIMB_NOTE, climbNote, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
+  TRACKS, TRACK_IDS, KINDS, PLACES, STYLES, STYLE_IDS, SENT, styleName, routeSum, HANG_MM, hangOf, hangKg, bodyKg, hangPct, kgNum, kgText, fingerWeeks, CLIMB_NOTE, climbNote, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,

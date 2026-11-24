@@ -24,6 +24,7 @@ function cleanItem(x) {
   ['lbl', 'restLbl', 'doneLbl'].forEach(f => { if (typeof x[f] === 'string' && x[f].trim()) o[f] = str(x[f], 20); });
   if (x.measure) o.measure = true;
   if (num(x.est, 10, 14400)) o.est = Math.round(x.est);
+  if (num(x.kg, -100, 60)) o.kg = Math.round(x.kg * 10) / 10;
   return o;
 }
 function cleanBlock(id, b) {
@@ -55,6 +56,12 @@ function cleanEntry(e) {
   if (num(e.routes, 0, 200)) o.routes = Math.round(e.routes);
   if (BL.GRADE_LIST.indexOf(e.grade) >= 0) o.grade = e.grade;
   if (BL.PLACES.indexOf(e.place) >= 0) o.place = e.place;
+  if (Array.isArray(e.rl)) {
+    const rl = e.rl.filter(r => isObj(r) && BL.GRADE_LIST.indexOf(r.g) >= 0 && BL.STYLE_IDS.indexOf(r.s) >= 0).slice(0, 60).map(r => ({ g: r.g, s: r.s }));
+    if (rl.length) o.rl = rl;
+  }
+  if (num(e.kg, -100, 60)) o.kg = Math.round(e.kg * 10) / 10;
+  if (e.mm === 20 || e.mm === 15) o.mm = e.mm;
   if (str(e.note, 200)) o.note = str(e.note, 200);
   if (e.partial) o.partial = true;
   return o;

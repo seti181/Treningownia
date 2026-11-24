@@ -143,6 +143,52 @@ async function open(b, o) {
   ok('8 after reload everything is still there', (await page.locator('#dzis-in .blk.is-done').count()) === 4);
   await ctx.close();
 
+  // 10) palce z obciążeniem i wspinanie z listą dróg (waga 72 kg)
+  {
+    const seed = { v: 3, epoch: 0, start: '2026-11-01', phase: 1, phaseStart: '2026-11-01', updated: 10, weight: { '2026-11-23': { kg: 72, at: 5 } } };
+    const o = await open(b, { seed });
+    const pg = o.page, t = async q => ((await pg.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    const sv = () => pg.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
+    ok('10 fingers card: no load yet, asks to log it', /Obciążenie: zapisz po treningu/.test(await t('#dzis-in .blk >> nth=0')));
+    await pg.click('#dzis-in .blk [data-act="b-start"]'); await pg.clock.runFor(500);
+    let k = 0; while (!(await pg.isVisible('#pl-done')) && k++ < 60) await pg.click('[data-pl="next"]');
+    ok('10 done screen: "Dopisz obciążenie"', (await pg.isVisible('#dn-runlog')) && (await t('#dn-runlog')) === 'Dopisz obciążenie' && /Dopisz obciążenie/.test(await t('#dn-saved')));
+    await pg.click('#dn-runlog'); await pg.clock.runFor(300);
+    ok('10 log form opens on the load field', (await pg.isVisible('#lg-kg')) && (await pg.evaluate(() => document.activeElement && document.activeElement.id)) === 'lg-kg' && !(await pg.isVisible('[data-v="dir:add"]')));
+    await pg.fill('#lg-kg', '10'); await pg.clock.runFor(50);
+    ok('10 live readout: 62 kg of 72 kg, 86%', /62 kg.*72 kg.*86% wagi/.test(await t('#lg-kgp')), await t('#lg-kgp'));
+    await pg.fill('#lg-kg', 'abc'); await pg.click('[data-act="lg-save"]'); await pg.clock.runFor(100);
+    ok('10 bad load: error, focus on the field', (await pg.isVisible('#lg-h.is-err')) && (await pg.evaluate(() => document.activeElement.id)) === 'lg-kg');
+    await pg.fill('#lg-kg', '10'); await pg.click('[data-act="lg-set"][data-v="rpe:5"]');
+    await pg.screenshot({ path: OUT + 'b-11-palce-wpis.png', fullPage: true });
+    await pg.click('[data-act="lg-save"]'); await pg.clock.runFor(200);
+    let s2 = await sv(), z = s2.blog['2026-11-24']['p0-palce-20'];
+    ok('10 load saved: -10 kg on 20 mm', z.kg === -10 && z.mm === 20 && z.rpe === 5, JSON.stringify(z));
+    ok('10 card shows the load and % of body weight', /20 mm · odciążenie 10 kg · 86% wagi/.test(await t('#dzis-in .blk.is-done >> nth=0')), await t('#dzis-in .blk.is-done >> nth=0'));
+    // wspinanie: trzy drogi, jedna usunięta i dodana ponownie
+    await pg.click('#dzis-in .blk .go[data-act="b-log"]'); await pg.clock.runFor(200);
+    ok('10 climbing form: route list empty, old fields still there', (await pg.isVisible('#lg-rg')) && (await pg.isVisible('#lg-grade')) && !(await pg.isVisible('.rl-list')));
+    const addRoute = async (g, st) => { await pg.selectOption('#lg-rg', g); await pg.click(`[data-act="lg-set"][data-v="rs:${st}"]`); await pg.click('[data-act="lg-radd"]'); await pg.clock.runFor(50); };
+    await addRoute('6a', 'os'); await addRoute('6a+', 'rp'); await addRoute('7a', 'fl');
+    ok('10 three routes listed, hardest sent 7a, manual fields gone', (await pg.locator('.rl-list li').count()) === 3 && /Najtrudniejsza przejdzona: 7a · 3 drogi/.test(await t('#lg-rl-sum')) && !(await pg.isVisible('#lg-grade')), await t('#lg-rl-sum'));
+    await pg.click('.rl-list li:nth-child(3) [data-act="lg-rdel"]'); await pg.clock.runFor(50);
+    await addRoute('6b', 'pr');
+    ok('10 removed a route, added an attempt: hardest sent 6a+', (await pg.locator('.rl-list li').count()) === 3 && /6a\+ · 3 drogi/.test(await t('#lg-rl-sum')) && (await pg.locator('.rl-list li.rl-pr').count()) === 1);
+    await pg.click('[data-act="lg-set"][data-v="place:Hala"]');
+    await pg.screenshot({ path: OUT + 'b-12-drogi.png', fullPage: true });
+    await pg.click('[data-act="lg-save"]'); await pg.clock.runFor(200);
+    s2 = await sv(); const c = s2.blog['2026-11-24']['p1-wspinanie'];
+    ok('10 climb saved with routes, grade and count from the list', c && c.rl.length === 3 && c.grade === '6a+' && c.routes === 3, JSON.stringify(c));
+    ok('10 climb card: styles counted', /max 6a\+ · 3 drogi · 1 OS, 1 RP, 1 próba/.test(await t('#dzis-in .blk.is-done >> nth=1')), await t('#dzis-in .blk.is-done >> nth=1'));
+    await pg.click('#dzis-in .blk.is-done >> nth=1 >> [data-act="b-log"]'); await pg.clock.runFor(200);
+    ok('10 editing the climb keeps the route list', (await pg.locator('.rl-list li').count()) === 3);
+    await pg.click('[data-act="lg-cancel"]'); await pg.clock.runFor(100);
+    await go(pg, 'postep');
+    ok('10 Postęp: fingers chart, pyramid by style, new records', /Palce w liczbach/.test(await t('#postep-in')) && (await pg.isVisible('#cc-z20')) && /Przejścia według wyceny/.test(await t('#postep-in')) && /1 OS/.test(await t('#postep-in .hb')) && /Najmocniejszy zwis 20 mm ?86% wagi/.test(await t('#postep-in .recs')) && /Najtrudniejszy OS albo flash ?6a/.test(await t('#postep-in .recs')), await t('#postep-in .recs'));
+    await pg.screenshot({ path: OUT + 'b-13-postep-palce.png', fullPage: true });
+    await o.ctx.close();
+  }
+
   // 9) 320 px i ciemny motyw: bez przewijania w bok
   for (const [name, c] of [['small', { viewport: { width: 320, height: 640 } }], ['dark', { colorScheme: 'dark' }]]) {
     const o = await open(b, { ctx: c });
@@ -157,6 +203,13 @@ async function open(b, o) {
     await o.page.click('#dzis-in .blk .go[data-act="b-log"]'); await o.page.clock.runFor(100);
     check('9 ' + name + ': log form fits', !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
     await o.page.screenshot({ path: OUT + 'b-2x-' + name + '-wpis.png', fullPage: true });
+    await o.page.selectOption('#lg-rg', '6c+'); await o.page.click('[data-act="lg-radd"]'); await o.page.click('[data-act="lg-set"][data-v="rs:pr"]'); await o.page.click('[data-act="lg-radd"]'); await o.page.clock.runFor(50);
+    check('9 ' + name + ': route list fits', !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
+    await o.page.screenshot({ path: OUT + 'b-2x-' + name + '-drogi.png', fullPage: true });
+    await o.page.click('[data-act="lg-cancel"]'); await o.page.clock.runFor(100);
+    await o.page.click('#dzis-in .blk [data-act="b-log"] >> nth=0'); await o.page.clock.runFor(100);
+    check('9 ' + name + ': fingers form with the load fits', (await o.page.isVisible('#lg-kg')) && !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
+    await o.page.screenshot({ path: OUT + 'b-2x-' + name + '-palce.png', fullPage: true });
     await go(o.page, 'bloki');
     await o.page.click('[data-act="bl-edit"][data-v="sila-kolka"]'); await o.page.clock.runFor(100);
     check('9 ' + name + ': editor fits', !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
