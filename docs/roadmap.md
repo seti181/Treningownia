@@ -77,5 +77,5 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-24: item 2 built: training cycle (3 + 1 by default) and progression proposals (hangboard time then 15 mm, reps, run minutes, the 5 km test), never silent, paused by shoulder pain or a red morning.
 - 2026-11-24: item 3 built: charts in HTML/CSS (one colour, readout row, table view) for running and climbing.
 - 2026-11-24: item 4 built: level-up celebration, one rest day a week keeps the streak, weight pace and goal date, a note when losing more than 1% a week for two weeks.
-- 2026-11-24: Atlas search and categories, at the owner's request: a search box in the sticky bar (name, dose, tips, category; ignores case and Polish letters, matches word stems), the block exercises split into five categories, the animation buttons moved under the intro.
 - 2026-11-24: item 5, partly: the "Koniec rehabilitacji" switch and the locked pull-up block; sync, the Android app and Strava wait on the owner.
+- 2026-11-24: Atlas search and categories, at the owner's request: a search box in the sticky bar (name, dose, tips, category; ignores case and Polish letters, matches word stems), the block exercises split into five categories, the animation buttons moved under the intro.
