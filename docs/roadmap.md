@@ -30,41 +30,52 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Separate levels: climbing (grades from 6a) and running (named steps to 1:20), with real-form lines | done | blocks.md |
 | Cloud sync (Firebase over REST) | built and tested against a fake; on hold until the owner creates the Firebase project | sync.md |
 
-## Next (proposed order; the owner picks)
+## Next: approved plan (owner, 24 November 2026: "implement all 5")
 
-### 1. Running: interval timer and paces (stage 1b, part 1)
-- A run player: warm-up, intervals and rest with beeps and voice, for interval, tempo and stride runs. Useful because there's no watch.
-- Training paces from the 5 km test (easy, tempo, interval), shown on run blocks and recalculated after each new test.
-- New run blocks: tempo, intervals (e.g. 6 × 800 m), progression run.
+The owner approved all five items below, in this order. Build one item per session (or per part), and before each one still post a short summary of the concrete details (doses, paces, screens) and wait for "go": the rule in CLAUDE.md stands. Each item ends with `npm test` passing, screenshots checked, docs updated, a commit and a push.
 
-### 2. Phases and automatic progression (stage 1b, part 2)
-- **Etapy** (multi-week phases): e.g. Baza 4 tyg. → Budowa 3 tyg. → Odciążenie 1 tyg. A phase sets the weekly pattern and how loads grow inside it.
-- **Progression rules** from the log, always confirmed by the owner: run volume +10% a week at most, long run +1 km; hangboard 20 → 15 mm or longer holds when effort is low; push-up and ring reps up when all sets were done at low effort; hold or step back on high effort or shoulder pain (rehab pain rules).
-- Recovery weeks, and adjusting the week after missed days.
+### 1. Run player and training paces (next)
+Why first: the owner has no watch, so a timer that guides intervals is the biggest daily gain.
+- **Run blocks with segments.** A run block can hold segments: `{ kind: 'warm' | 'run' | 'rest' | 'cool', dur (s) or km, pace zone, reps }`. Old run blocks without segments keep working (log only).
+- **Run player.** Reuses the player shell (timer, voice, beeps, wake lock, pause, back/next): counts down each segment, announces the next one ("Szybko 3 minuty", "Trucht 2 minuty"), shows the target pace, beeps 3-2-1. No GPS: distance segments are shown as "about X min at your pace". Ends on the log form (km, time, effort), prefilled with the planned time.
+- **Training paces** from the best 5 km test (block `bieg-test5`, or any run of 5+ km logged as a test): easy, steady, tempo, interval (standard percentages of 5 km pace; agree the table with the owner). Shown on run blocks and in Postęp; recalculated after each new test. Without a test: easy runs by feel (talk test), and a prompt to do the test.
+- **New built-in run blocks** (conservative, owner confirms): tempo (10 min warm-up, 15–20 min tempo, 10 min cool-down), intervals 6 × 800 m (or 6 × 3 min) with 2 min jog, progression run, strides (existing block gets segments).
+- Tests: segment timing in Node, the player through a whole interval run in Playwright (with `page.clock`), paces from a test.
+- Open: the pace table; first 5 km test date.
+
+### 2. Phases (etapy) and automatic progression
+- **Phases:** `phases` state key: a list of `{ name, start, weeks, kind: 'baza' | 'budowa' | 'szczyt' | 'odciazenie' | 'start', pattern? }`. A phase can override the default week; the planner shows the current phase and week number ("Budowa, tydzień 2 z 3"). Start with a simple template: 3 weeks build + 1 week recovery, repeated; recovery week = about 60% volume, no hard sessions.
+- **Progression proposals** (never silent; a card on Dziś/Tydzień: "Propozycja: …" with "Przyjmij" / "Nie teraz"):
+  - Running: weekly km +10% at most, long run +1 km a week, back down in a recovery week.
+  - Fingers: if the last 2 sessions were rated effort ≤ 6 and shoulder pain ≤ 2: +2 s per hang (up to 10 s → 12 s → 15 s), then 20 mm → 15 mm (reset to 7–10 s).
+  - Push-ups and rings: all sets done at effort ≤ 6 → +1–2 reps per set; effort ≥ 9 or pain ≥ 4 → hold or step back.
+  - Shoulder pain ≥ 4 on any block, or a red morning check → no increases that week (rehab pain rules).
+- Accepting a proposal edits the block (a changed built-in, like the editor) and logs the change in Dziennik.
+- Tests: rules in Node with seeded logs; accept/decline in Playwright.
+- Open: phase lengths; when the first recovery week falls; finger progression steps.
 
 ### 3. Charts and climbing details
-- Weekly km chart, long-run progression, predicted half-marathon trend against 1:20.
-- Climbing: grade pyramid, sessions per place (hall, wall, rock, TRS), hardest send per month.
-- Loads relative to body weight (hangboard), using the weight log.
+- Running: weekly km bars (12 weeks), long-run line, predicted half-marathon trend against a 1:20 line (from `runForm` per week).
+- Climbing: grade pyramid (routes per grade, last 90 days), sessions by place (hall, wall, rock, TRS), hardest grade per month.
+- Hangboard: load relative to body weight once added weight or feet-assisted kg are logged (uses the weight log).
+- Follow the chart rules in docs/architecture.md (one coloured mark, readout row, values also in a table, real pixel width). Place: Postęp, in sections per sport.
 
-### 4. Quick wins (small, any time)
-- Level-up celebration (full-screen moment with a sound).
-- Streak protection (one rest day a week keeps the streak).
-- Weight goal line at 56 kg and a rate-of-loss warning (about 0,5–0,7 kg a week).
+### 4. Quick wins
+- **Level-up celebration:** a short full-screen moment (new grade tag, sound, vibration) when the climbing or running level goes up; respects reduced motion and sound settings.
+- **Streak protection:** one rest day per Monday–Sunday week doesn't break the day streak (shown as a shield on the day).
+- **Weight goal line and rate check:** the goal (56 kg, owner) is already settable on the Waga page; add a "losing too fast" note when the 7-day average drops more than about 1% of body weight a week for two weeks, and a projected date for the goal at the current rate. Traffic-light colours stay off weight (CLAUDE.md).
 
-### 5. When rehab ends (only when the owner says so)
-- Unlock pulling: pull-ups, lock-offs, harder hangboard protocols, and drop the shoulder reminders.
-
-### Later
-- Cloud sync: switches on when the Firebase project exists (docs/sync.md).
-- **Android app (Capacitor):** the same app as an APK, installed directly. Notifications, sturdier storage, watch data through Health Connect.
-- Watch or Strava import.
+### 5. Later and conditional
+- **When the owner says rehab is done:** unlock pulling blocks (pull-ups, lock-offs, harder hangboard protocols), drop the shoulder reminders, keep a maintenance rehab block.
+- **Cloud sync:** switch on when the owner creates the Firebase project and sends `apiKey` and `projectId` (docs/sync.md); then a real sign-in check on the phone.
+- **Android app (Capacitor):** the same app as an APK installed directly; notifications (training reminders), sturdier storage, Health Connect for watch data later. Needs the owner's OK for the Capacitor dependency and Android Studio on the laptop.
+- **Strava or GPX import** of runs, if the owner gets a watch.
 
 ## Open questions
 
-- Running: a race (and date) for the 1:20; a first 5 km test to set training paces.
-- Fingers: when to move from 20 mm to 15 mm, and whether to add weight later.
-- Phases: how long the first build should be, and when the recovery weeks fall.
+- Running: a race (and date) for the 1:20; the first 5 km test; the training-pace table.
+- Fingers: when to move from 20 mm to 15 mm; added weight later.
+- Phases: length of the first build; when the recovery weeks fall.
 
 ## Decision log
 
@@ -83,3 +94,4 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 - 2026-11-24: weekly challenges (4 a week: full week +25, km target = 4-week average + 10%, two rotating) and personal records (+10 per record beaten), at the owner's request.
 - 2026-11-24: animations for all 18 block exercises (`ATLAS.MOVES`), in the player and a new Atlas section.
 - 2026-11-24: separate levels for climbing (grades from 6a, the owner's current level) and running (named steps to 1:20), each with a real-form line (hardest grade in 30 days; predicted half marathon by Riegel). Rehab, stretching and streaks count only to the total.
+- 2026-11-24: the owner approved all five next items, in order: run player and paces, phases and automatic progression, charts, quick wins, then the later/conditional items. Details are confirmed per item before building.

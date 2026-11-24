@@ -17,7 +17,13 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 
 - Built and live: app shell and PWA, rehab, weight, training blocks with planner and editor, animations for every exercise, points, badges, streaks, weekly challenges, personal records, separate climbing and running levels with real-form lines. Details per area in docs/; the table is in docs/roadmap.md.
 - On hold: cloud sync (code ready; needs the owner's Firebase project).
-- Next, owner picks: a run interval timer with training paces, phases (etapy) with automatic progression, charts, quick wins (level-up celebration, streak protection, weight goal line). See docs/roadmap.md.
+- Next (approved by the owner, in this order; details in docs/roadmap.md → "Next: approved plan"):
+  1. Run player and training paces (start here): run blocks with segments, a guided interval timer, paces from the 5 km test, new run blocks.
+  2. Phases (etapy) and automatic progression: build/recovery weeks; proposals the owner accepts (km +10%, long run +1 km, hangboard time then 20 → 15 mm, more reps); never silent.
+  3. Charts and climbing details: weekly km, long runs, half-marathon trend, grade pyramid.
+  4. Quick wins: level-up celebration, streak protection, weight goal line and rate-of-loss note.
+  5. Later/conditional: unlock pulling when rehab ends, cloud sync, Android APK (Capacitor), Strava/GPX import.
+- At the start of each item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
 
 ## Commands
 
