@@ -133,6 +133,8 @@ function pt(s, n) {
     case 'lScap': return add(s.lS, s.T([-9, -12, -10]));
     case 'lTrap': return add(s.neck, s.T([7, -18, -10]));
     case 'handsMid': return lerp(s.la.H, s.ra.H, 0.5);
+    case 'lFt': return s.ll.A; case 'rFt': return s.rl.A;
+    case 'core': return add(s.root, mul(s.up, 14));
   }
   return [0, 0, 0];
 }
@@ -199,6 +201,7 @@ function view(ex) {
     else if (pr.t === 'band' || pr.t === 'cable') { if (Array.isArray(pr.a)) acc(pr.a, 3); }
     else if (pr.t === 'pulley') acc(pr.at, 7);
     else if (pr.t === 'rings') { const top = pr.y + (pr.vis || 40); acc([pr.x, top, pr.z || 0], 3); acc([-pr.x, top, pr.z || 0], 3); }
+    else if (pr.t === 'footrings') { const top = pr.y + (pr.vis || 30); acc([pr.x, top, pr.z || 0], 3); acc([-pr.x, top, pr.z || 0], 3); }
   }
   let w = x1 - x0, h = y1 - y0;
   const pad = 8 + 0.05 * Math.max(w, h);
@@ -316,6 +319,24 @@ function render(ex, time, uid, opts) {
           let v = sub(s.fwd, mul(u, dot(s.fwd, u)));
           v = len(v) < 1e-3 ? perp(u) : norm(v);
           const r = 6.5, C = add(H, mul(u, 3.5));
+          const pts = [];
+          for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2; pts.push(add(C, add(mul(u, Math.cos(a) * r), mul(v, Math.sin(a) * r)))); }
+          const qc = pj(C);
+          mid.push({ d: qc[2] + 0.6, s: `<polygon points="${pts.map(w => { const q = pj(w); return F(q[0]) + ',' + F(q[1]); }).join(' ')}" stroke-width="2.6" class="ring"/>` });
+          const t0 = add(C, mul(u, r));
+          for (let i = 0; i < 8; i++) seg(lerp(t0, anchor, i / 8), lerp(t0, anchor, (i + 1) / 8), 2.2, 'strap');
+        }
+        break;
+      }
+      case 'footrings': {
+        // stopy w kółkach: pas od kostki w górę do zaczepu
+        for (const lg of [s.ll, s.rl]) {
+          const side = lg === s.ll ? 1 : -1;
+          const anchor = [side * pr.x, pr.y + 320, pr.z || 0];
+          const u = norm(sub(anchor, lg.A));
+          let v = sub([1, 0, 0], mul(u, dot([1, 0, 0], u)));
+          v = len(v) < 1e-3 ? perp(u) : norm(v);
+          const r = 6.5, C = add(lg.A, mul(u, 2.5));
           const pts = [];
           for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2; pts.push(add(C, add(mul(u, Math.cos(a) * r), mul(v, Math.sin(a) * r)))); }
           const qc = pj(C);
@@ -854,7 +875,193 @@ const EX = [
   }
 ];
 
-const API = { EX, render, view, evalAt, stillTime, prep };
+// =====================================================================
+// RUCHY Z BLOKÓW TRENINGOWYCH (palce, siła, core, rozciąganie)
+// Nazwy, wskazówki i rodzaj nadaje katalog w blocks.js; tu są dawka do karty atlasu, kamera, rekwizyty i pozy.
+// =====================================================================
+const flip = o => ({ a: mirror(o.a), b: mirror(o.b) });
+const limbs = (l) => ({ lA: l, rA: flip(l) });
+// chwytotablica: listwa na wysokości 215 cm, dłonie na szerokość barków, stopy na krześle
+const HGY = 215;
+const HG = (rootY, sc, kneeZ, footY) => P({
+  root: [0, rootY, 0], scap: { l: sc, r: sc }, head: [0, 1, 0.08],
+  lA: { ik: [17, HGY, 3], pole: [1, 0, 0.3] }, rA: { ik: [-17, HGY, 3], pole: [-1, 0, 0.3] },
+  lL: { ik: [10, footY, 36], pole: [0.1, 0.2, 1] }, rL: { ik: [-10, footY, 36], pole: [-0.1, 0.2, 1] },
+  lF: [0.12, -0.1, 1], rF: [-0.12, -0.1, 1]
+});
+const HG_PROPS = [
+  { t: 'box', c: [0, HGY + 4, -3], h: [34, 4.5, 6], layer: 'mid' },
+  { t: 'box', c: [0, HGY + 8, -12], h: [42, 14, 3], k: 'wall' },
+  { t: 'box', c: [0, 22, 36], h: [21, 22, 19] }
+];
+// podpór na kółkach (kółka na wysokości bioder)
+const RS = (rootY, sc, kneeB) => P({
+  root: [0, rootY, 0], scap: { l: sc, r: sc },
+  lA: { ik: [23, 96, 2], pole: [0.4, 0, -1] }, rA: { ik: [-23, 96, 2], pole: [-0.4, 0, -1] },
+  lL: { a: [0.03, -1, 0.06], b: kneeB }, rL: { a: [-0.03, -1, 0.06], b: kneeB },
+  lF: [0.1, -0.6, -0.8], rF: [-0.1, -0.6, -0.8]
+});
+// deska na przedramionach (łokcie pod barkami)
+function fplank(hipLift) {
+  const p = plank(36);
+  const up = norm(sub(solve(p).neck, p.root));
+  p.lA = { a: [0.04, -1, 0], b: [0.1, 0, 1] }; p.rA = { a: [-0.04, -1, 0], b: [-0.1, 0, 1] };
+  if (hipLift) p.root = add(p.root, [0, hipLift, 0]);
+  void up;
+  return p;
+}
+// leżenie na plecach (głowa w stronę -z), unoszenie tułowia i nóg
+const BACK = (o) => P(Object.assign({ root: [0, 10, 0], pitch: -90, head: [0, 0.2, 1] }, o));
+// rozciąganie w staniu
+const ST = (o) => P(o);
+const MOVES = [
+  {
+    id: 'rozgrzewka-palce', dose: '3 min', load: 'Bez obciążenia',
+    cam: { az: 30, el: 10 },
+    seq: [
+      { p: P(limbs({ a: [0.2, -0.9, 0.35], b: [0.05, 0.25, 1] })), h: 0.2 },
+      { p: P(limbs({ a: [0.2, -0.9, 0.35], b: [0.05, -0.25, 1] })), m: 0.45, h: 0.1 },
+      { p: P(limbs({ a: [0.2, -0.9, 0.35], b: [0.35, 0, 1] })), m: 0.45, h: 0.1 },
+      { p: P(limbs({ a: [0.2, -0.9, 0.35], b: [-0.2, 0.1, 1] })), m: 0.45, h: 0.1 }
+    ]
+  },
+  {
+    id: 'zwis-20', dose: '6 × 10 s', load: 'Ok. 7 z 10 · stopy na krześle, jeśli trzeba',
+    cam: { az: 28, el: 8 },
+    props: [...HG_PROPS, { t: 'glow', at: 'lH', r: 12 }, { t: 'arrow', at: 'lS', off: [0, 6, -9], dir: [0, -1, 0], len: 10 }],
+    seq: [
+      { p: HG(84, [3, 1], 1, 45), h: 0.8 },
+      { p: HG(97, [-3, -1], 1, 45), m: 1.0, h: 2.6, eff: 1, glow: 1, badge: 'TRZYMAJ' },
+      { p: HG(84, [3, 1], 1, 45), m: 0.9, h: 0.5 }
+    ]
+  },
+  {
+    id: 'pompka-klasyczna', dose: '4 × 10–12', load: 'Masa ciała',
+    cam: { az: 15, el: 14 }, shadow: false,
+    props: [MAT_PU],
+    seq: [{ p: PU_TOP, h: 0.4 }, { p: PU_BOT, m: 1.3, h: 0.15 }, { p: PU_TOP, m: 1.0, h: 0.3 }]
+  },
+  {
+    id: 'kolka-podpor', dose: '3 × 15 s', load: 'Masa ciała',
+    cam: { az: 30, el: 8 },
+    props: [{ t: 'rings', x: 23, y: 96, z: 2, vis: 70 }, { t: 'arrow', at: 'lS', off: [0, 7, -8], dir: [0, -1, 0], len: 10 }],
+    seq: [
+      { p: P({ root: [0, 90, 0], lA: { ik: [23, 96, 2], pole: [0.4, 0, -1] }, rA: { ik: [-23, 96, 2], pole: [-0.4, 0, -1] } }), h: 0.6 },
+      { p: RS(109, [-3, -1], [0, -0.1, -1]), m: 1.0, h: 2.6, eff: 1, badge: 'TRZYMAJ' },
+      { p: P({ root: [0, 90, 0], lA: { ik: [23, 96, 2], pole: [0.4, 0, -1] }, rA: { ik: [-23, 96, 2], pole: [-0.4, 0, -1] } }), m: 0.9, h: 0.4 }
+    ]
+  },
+  {
+    id: 'kolka-pompka', dose: '3 × 8', load: 'Masa ciała · kółka nisko',
+    cam: { az: 15, el: 14 }, shadow: false,
+    props: [MAT_PU, { t: 'rings', x: 25, y: 8, z: 44, vis: 40 }],
+    seq: [{ p: PU_TOP, h: 0.4 }, { p: PU_BOT, m: 1.4, h: 0.15 }, { p: PU_TOP, m: 1.1, h: 0.3 }]
+  },
+  {
+    id: 'kolka-deska', dose: '3 × 30 s', load: 'Masa ciała',
+    cam: { az: 15, el: 14 }, shadow: false,
+    props: [MAT_PU, { t: 'rings', x: 25, y: 8, z: 30, vis: 40 }, { t: 'glow', at: 'core', r: 16 }],
+    seq: holdSeq(fplank(0)).map((x, i) => Object.assign({}, x, i === 1 ? { glow: 1 } : {}))
+  },
+  {
+    id: 'kolka-kolana', dose: '3 × 10', load: 'Masa ciała', path: false,
+    cam: { az: 15, el: 14 }, shadow: false,
+    props: [MAT_PU, { t: 'footrings', x: 9, y: 14, z: -70, vis: 40 }, { t: 'glow', at: 'core', r: 16 }],
+    seq: [
+      { p: PU_TOP, h: 0.4 },
+      { p: P({ root: [0, 76, -8], pitch: 102, head: [0, 1, 0], lA: { ik: [25, 4.5, 44], pole: [0.55, 0.15, -1] }, rA: { ik: [-25, 4.5, 44], pole: [-0.55, 0.15, -1] },
+        lL: { ik: [9, 28, -26], pole: [0, -0.6, 1] }, rL: { ik: [-9, 28, -26], pole: [0, -0.6, 1] }, lF: [0.05, -0.5, -0.85], rF: [-0.05, -0.5, -0.85] }), m: 1.0, h: 0.3, glow: 1 },
+      { p: PU_TOP, m: 1.0, h: 0.3 }
+    ]
+  },
+  {
+    id: 'deska', dose: '3 × 30 s', load: 'Masa ciała',
+    cam: { az: 15, el: 14 }, shadow: false,
+    props: [MAT_PU, { t: 'glow', at: 'core', r: 16 }],
+    seq: holdSeq(fplank(0)).map((x, i) => Object.assign({}, x, i === 1 ? { glow: 1 } : {}))
+  },
+  {
+    id: 'deska-bok', dose: '4 × 20 s', load: 'Masa ciała · na zmianę strony',
+    cam: { az: 70, el: 22 }, shadow: false,
+    props: [{ t: 'box', c: [-30, 0.8, 0], h: [82, 0.8, 34], k: 'mat' }, { t: 'glow', at: 'core', r: 16 }],
+    seq: (() => {
+      const SP = (rootY, roll) => {
+        const r = rad(roll), feet = [Math.sin(r), -Math.cos(r), 0];
+        return P({ root: [8, rootY, 0], roll, head: [0, 1, 0],
+          rA: { a: [0, -1, 0], b: [0, 0, 1] }, lA: { a: [Math.sin(r) * 0.9, -Math.cos(r) * 0.9, 0.35], b: [-0.1, -0.7, -0.7] },
+          lL: straight([feet[0], feet[1], 0.02]), rL: straight([feet[0], feet[1], -0.02]), lF: [0, 0.05, 1], rF: [0, 0.05, 1] });
+      };
+      return [{ p: SP(18, 82), h: 0.6 }, { p: SP(31, 70), m: 1.0, h: 2.6, glow: 1, badge: 'TRZYMAJ' }, { p: SP(18, 82), m: 0.9, h: 0.4 }];
+    })()
+  },
+  {
+    id: 'hollow', dose: '3 × 20 s', load: 'Masa ciała · łatwiej: kolana ugięte',
+    cam: { az: 12, el: 16 }, shadow: false,
+    props: [{ t: 'box', c: [0, 0.8, 0], h: [34, 0.8, 95], k: 'mat' }, { t: 'glow', at: 'core', r: 16 }],
+    seq: [
+      { p: BACK({ head: [0, 1, 0], lA: straight([0.2, 0, 1]), rA: straight([-0.2, 0, 1]), lL: straight([0.03, 0, 1]), rL: straight([-0.03, 0, 1]), lF: [0.1, 1, 0], rF: [-0.1, 1, 0] }), h: 0.6 },
+      { p: BACK({ pitch: -74, head: [0, 0.8, 0.6], lA: straight([0.1, 0.3, -0.95]), rA: straight([-0.1, 0.3, -0.95]), lL: straight([0.03, 0.3, 0.95]), rL: straight([-0.03, 0.3, 0.95]), lF: [0.1, 0.95, 0.3], rF: [-0.1, 0.95, 0.3] }), m: 1.0, h: 2.6, glow: 1, badge: 'TRZYMAJ' },
+      { p: BACK({ head: [0, 1, 0], lA: straight([0.2, 0, 1]), rA: straight([-0.2, 0, 1]), lL: straight([0.03, 0, 1]), rL: straight([-0.03, 0, 1]), lF: [0.1, 1, 0], rF: [-0.1, 1, 0] }), m: 0.9, h: 0.4 }
+    ]
+  },
+  {
+    id: 'dead-bug', dose: '3 × 10 na stronę', load: 'Masa ciała',
+    cam: { az: 12, el: 18 }, shadow: false,
+    props: [{ t: 'box', c: [0, 0.8, 0], h: [34, 0.8, 95], k: 'mat' }, { t: 'glow', at: 'core', r: 16 }],
+    seq: (() => {
+      const base = { head: [0, 1, 0], lA: straight([0.05, 1, 0]), rA: straight([-0.05, 1, 0]), lL: { a: [0.05, 1, 0], b: [0, 0, 1] }, rL: { a: [-0.05, 1, 0], b: [0, 0, 1] }, lF: [0.1, 1, 0.2], rF: [-0.1, 1, 0.2] };
+      const A1 = BACK(Object.assign({}, base, { lA: straight([0.08, 0.15, -1]), rL: straight([-0.03, 0.15, 1]), rF: [-0.1, 1, 0] }));
+      const A2 = BACK(Object.assign({}, base, { rA: straight([-0.08, 0.15, -1]), lL: straight([0.03, 0.15, 1]), lF: [0.1, 1, 0] }));
+      return [{ p: BACK(base), h: 0.3 }, { p: A1, m: 1.0, h: 0.4, glow: 1 }, { p: BACK(base), m: 0.9, h: 0.2 }, { p: A2, m: 1.0, h: 0.4, glow: 1 }, { p: BACK(base), m: 0.9, h: 0.2 }];
+    })(),
+    rep: 1
+  },
+  {
+    id: 'r-lydki', dose: '2 × 45 s', load: 'Lewa, potem prawa',
+    cam: { az: 8, el: 8 },
+    props: [{ t: 'box', c: [0, 100, 70], h: [50, 100, 3], k: 'wall' }],
+    seq: holdSeq(ST({ root: [0, 86, 8], pitch: 16, lA: { ik: [20, 138, 66], pole: [0.5, -1, 0] }, rA: { ik: [-20, 138, 66], pole: [-0.5, -1, 0] },
+      lL: { ik: [10, 4, 36], pole: [0.1, 0, 1] }, rL: straight([-0.03, -0.9, -0.42]), lF: [0.1, 0, 1], rF: [-0.05, 0, 1] }))
+  },
+  {
+    id: 'r-tyl-uda', dose: '2 × 45 s', load: 'Lewa, potem prawa',
+    cam: { az: 8, el: 8 },
+    props: [{ t: 'box', c: [-10, 23, 66], h: [20, 23, 18] }],
+    seq: holdSeq(ST({ root: [0, 90, 0], pitch: 32, head: [0, 1, 0.25], lA: { ik: [12, 72, 52], pole: [0.5, 0, -1] }, rA: { ik: [-12, 68, 56], pole: [-0.5, 0, -1] },
+      lL: straight([0.03, -1, -0.02]), rL: { ik: [-10, 50, 70], pole: [0, 1, 0.2] }, rF: [-0.05, 1, 0.2] }))
+  },
+  {
+    id: 'r-przod-uda', dose: '2 × 45 s', load: 'Lewa, potem prawa',
+    cam: { az: 8, el: 8 },
+    seq: holdSeq(ST({ root: [0, 90, 0], lA: straight([0.25, -0.2, 0.95]), rA: { ik: [-12, 84, -16], pole: [-0.3, 0, 1] },
+      rL: { a: [-0.03, -1, -0.08], b: [0, 0.95, -0.3] }, rF: [0, 0.4, -0.9] }))
+  },
+  {
+    id: 'r-biodra', dose: '2 × 45 s', load: 'Lewa, potem prawa',
+    cam: { az: 8, el: 10 }, shadow: false,
+    props: [{ t: 'box', c: [0, 0.8, 0], h: [34, 0.8, 80], k: 'mat' }],
+    seq: holdSeq(P({ root: [0, 46, 4], head: [0, 1, 0.05], lA: straight([0.1, -1, 0.05]), rA: { ik: [-14, 52, 40], pole: [-0.3, 0, -1] },
+      lL: { ik: [9, 7, -44], pole: [0, -1, 0.3] }, rL: { ik: [-10, 8, 44], pole: [0, 0.6, 1] }, lF: [0.05, 0.3, -1], rF: [-0.08, 0, 1] }))
+  },
+  {
+    id: 'r-posladki', dose: '2 × 45 s', load: 'Lewa, potem prawa',
+    cam: { az: 22, el: 24 }, shadow: false,
+    props: [{ t: 'box', c: [0, 0.8, -10], h: [34, 0.8, 90], k: 'mat' }],
+    seq: holdSeq(BACK({ head: [0, 1, 0.1], lA: { ik: [12, 36, -22], pole: [1, 0.3, 0] }, rA: { ik: [2, 36, -22], pole: [-1, 0.3, 0] },
+      lL: { a: [0.08, 0.75, -0.65], b: [0, 0.35, 0.94] }, rL: { ik: [12, 45, -24], pole: [-1, 0.4, 0.2] }, lF: [0.1, 0.9, 0.3], rF: [0.3, 0.6, 0.8] }))
+  },
+  {
+    id: 'r-plecy', dose: '2 × 45 s', load: 'Spokojny oddech',
+    cam: { az: 28, el: 30 }, shadow: false,
+    props: [{ t: 'box', c: [0, 0.8, 30], h: [40, 0.8, 78], k: 'mat' }],
+    seq: holdSeq(child(0, [20, 4.5, 100], [-20, 4.5, 100]))
+  }
+];
+const zw15 = Object.assign({}, MOVES[1], { id: 'zwis-15' });
+delete zw15._tl; delete zw15._vb;
+MOVES.splice(2, 0, zw15);
+
+const API = { EX, MOVES, render, view, evalAt, stillTime, prep };
 G.ATLAS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

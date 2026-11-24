@@ -1,5 +1,5 @@
 // Renders contact sheets of exercise frames for visual checking.
-// Użycie: npm run sheet -- id1,id2   (bez listy: wszystkie ćwiczenia). Pliki: shots/sheetN.svg
+// Użycie: npm run sheet -- id1,id2   (bez listy: wszystkie ćwiczenia, z rehabilitacji i z bloków). Pliki: shots/sheetN.svg
 const path = require('path');
 const fs = require('fs');
 const A = require(path.join(__dirname, '..', 'src', 'core.js'));
@@ -52,7 +52,7 @@ const css = `
 .badge text{fill:#ffffff;font-family:sans-serif;font-weight:700}
 `;
 const which = process.argv[2] ? process.argv[2].split(',') : null;
-const list = A.EX.filter(e => !which || which.includes(e.id));
+const list = A.EX.concat(A.MOVES).filter(e => !which || which.includes(e.id));
 const per = 12, cw = 240, ch = 180, lw = 150;
 for (let s = 0; s * per < list.length; s++) {
   const chunk = list.slice(s * per, s * per + per);

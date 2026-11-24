@@ -76,7 +76,17 @@ ${list.map((ex, i) => card(ex, i)).join('\n')}
 </div>
 </section>`;
 }).join('\n');
-const chips = PH.map(p => `<li><a class="chip" href="#${p.id}" style="--c:var(${p.c})"><i></i>${esc(p.chip)}</a></li>`).join('');
+// Ruchy z bloków treningowych (palce, siła, core, rozciąganie): osobna sekcja atlasu, nazwy i wskazówki z katalogu bloków.
+const BLOCKSJS = require(path.join(SRC, 'blocks.js'));
+const MOVE_SEC = { id: 'bloki-ruchy', tape: 'B', chip: 'Bloki', name: 'Bloki treningowe · palce, siła, core, rozciąganie', meta: 'Ćwiczenia z bloków w zakładce Tydzień', c: '--p2' };
+const moveList = A.MOVES.filter(m => m.id !== 'zwis-15').map(m => BLOCKSJS.CAT[m.id]).filter(Boolean);
+const moveSection = `<section class="phase" id="${MOVE_SEC.id}" style="--c:var(${MOVE_SEC.c})">
+<div class="phase-head"><span class="tape"><span>${MOVE_SEC.tape}</span></span><div><h2>${esc(MOVE_SEC.name)}</h2><p class="phase-meta">${esc(MOVE_SEC.meta)}</p></div></div>
+<div class="grid">
+${moveList.map((ex, i) => card(ex, i)).join('\n')}
+</div>
+</section>`;
+const chips = PH.concat([MOVE_SEC]).map(p => `<li><a class="chip" href="#${p.id}" style="--c:var(${p.c})"><i></i>${esc(p.chip)}</a></li>`).join('');
 
 const painBtns = Array.from({ length: 11 }, (x, v) => `<button type="button" class="p-${v <= 3 ? 'ok' : v <= 5 ? 'warn' : 'bad'}" data-pain="${v}" aria-pressed="false" aria-label="Ból ${v} na 10">${v}</button>`).join('');
 const player = `<div id="player" class="player" role="dialog" aria-modal="true" aria-label="Trening" hidden>
@@ -205,6 +215,7 @@ ${panel('waga', 'wiecej')}
 </div></div>
 <div class="wrap">
 ${sections}
+${moveSection}
 </div>
 </section>
 ${panel('plan', 'wiecej')}

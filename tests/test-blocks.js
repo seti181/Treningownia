@@ -37,7 +37,7 @@ async function open(b, o) {
   // 2) zwisy z zegarem: ćwiczenia bez animacji w odtwarzaczu
   const p0 = await pts();
   await page.click('#dzis-in .blk [data-act="b-start"]'); await page.clock.runFor(500);
-  ok('2 player opens the block, first exercise has no animation but a stage', (await txt('#pl-name')) === 'Rozgrzewka palców' && (await page.locator('#pl-svg .halo').count()) === 1, await txt('#pl-name'));
+  ok('2 player opens the block with an animated figure', (await txt('#pl-name')) === 'Rozgrzewka palców' && (await page.locator('#pl-svg .bd.torso').count()) === 1, await txt('#pl-name'));
   await page.screenshot({ path: OUT + 'b-02-player.png' });
   let n = 0; while (!(await page.isVisible('#pl-done')) && n++ < 60) await page.click('[data-pl="next"]');
   await page.click('[data-pain="1"]'); await page.clock.runFor(200);

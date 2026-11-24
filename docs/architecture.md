@@ -16,7 +16,7 @@
 
 | File | Exposes | Role |
 |---|---|---|
-| `core.js` | `window.ATLAS = { EX, render, view, evalAt, stillTime, prep }` | animation engine and the exercise list (docs/rehab.md) |
+| `core.js` | `window.ATLAS = { EX, MOVES, render, view, evalAt, stillTime, prep }` | animation engine, the 33 rehab exercises (`EX`, docs/rehab.md) and the 18 block exercises (`MOVES`, docs/blocks.md) |
 | `ui.js` | nothing | atlas cards: about 30 fps, only visible cards, tap a card to pause it, global pause and ½× speed; skips drawing while `body.in-player` is set |
 | `plan.js` | `window.PLAN` | date helpers, rehab sessions and calendar, plan actions, points engine, weight helpers, `defaults()` |
 | `blocks.js` | `window.BLOCKS` | training blocks: tracks, catalogue, built-in blocks and week, day plan and changes, block log, points per entry, weekly challenges, personal records, time and pace (docs/blocks.md) |

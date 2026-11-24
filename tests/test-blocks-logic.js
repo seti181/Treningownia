@@ -10,6 +10,11 @@ const st = PL.defaults(MON);
 check('default week: 3 runs and 3 climbs, Sunday is a climb', [0, 1, 2, 3, 4, 5, 6].reduce((n, i) => n + BL.dayItems(st, PL.addDays(MON, i)).filter(x => BL.getBlock(st, x.b).t === 'bieg').length, 0) === 3
   && [0, 1, 2, 3, 4, 5, 6].reduce((n, i) => n + BL.dayItems(st, PL.addDays(MON, i)).filter(x => BL.getBlock(st, x.b).t === 'wspin').length, 0) === 3 && /wspinanie/.test(names(st, '2026-11-29')));
 check('every built-in timed block uses known exercises', BL.BUILTIN.filter(b => b.kind === 'timed').every(b => b.items.every(i => BL.exOf(i.ex))));
+const A = require('../src/core.js');
+const noAnim = Object.keys(BL.CAT).filter(id => BL.CAT[id].plain || !BL.CAT[id].seq);
+check('every block exercise has an animation', !noAnim.length, noAnim.join(', '));
+const bad = A.MOVES.filter(m => { try { A.render(m, A.stillTime(m), 't'); const v = A.view(m); return !v.every(isFinite); } catch (e) { return true; } });
+check('every move renders with a finite frame', !bad.length, bad.map(m => m.id).join(', '));
 check('no pulling exercises in built-in blocks (rehab rule)', !BL.BUILTIN.some(b => (b.items || []).some(i => /podciag|wioslow|australij|negatyw|lopatkowe|zwis-aktywny/.test(i.ex))));
 
 // przeniesienie, pominięcie, dodanie, usunięcie

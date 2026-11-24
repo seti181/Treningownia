@@ -1345,7 +1345,7 @@ if (hasSpeech) {
 renderAll();
 const h0 = (location.hash || '').replace('#', '');
 if (PAGES.indexOf(h0) >= 0) showTab(h0, { scroll: false });
-else if (/^faza-|^rozgrzewka$/.test(h0)) { showTab('atlas', { scroll: false }); scrollToEl(h0); }
+else if (/^faza-|^rozgrzewka$|^bloki-ruchy$/.test(h0)) { showTab('atlas', { scroll: false }); scrollToEl(h0); }
 else showTab('dzis', { scroll: false });
 setSync(syncMode);
 syncNow();

@@ -274,7 +274,7 @@ const DEFAULT_BLOCK = {};
   if (!DEFAULT_BLOCK[b.ex] || (DEFAULT_BLOCK[b.ex].sets === 1 && b.sets > 1)) DEFAULT_BLOCK[b.ex] = b;
 }));
 function singleSession(exId) {
-  const ex = A.EX.find(e => e.id === exId);
+  const ex = A.EX.find(e => e.id === exId) || (G.BLOCKS && G.BLOCKS.CAT[exId]);
   if (!ex) return null;
   let b = DEFAULT_BLOCK[exId];
   if (!b) {

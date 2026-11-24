@@ -31,7 +31,7 @@ Setup once: `npm install`, then `npx playwright install chromium`. Playwright is
 
 ```
 src/          app code, inlined into one HTML file by the build
-  core.js     animation engine + EX, the 33 rehab exercises          → window.ATLAS
+  core.js     animation engine + EX (33 rehab exercises) + MOVES (18 block exercises) → window.ATLAS
   ui.js       atlas card animation loop
   plan.js     rehab plan, training days, points, weight helpers      → window.PLAN
   blocks.js   training blocks: library, week pattern, day changes, block log, points, challenges, records → window.BLOCKS

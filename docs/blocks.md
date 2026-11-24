@@ -54,7 +54,17 @@ Longest run, best pace on runs of 5+ km and of 10+ km, most km in a week, hardes
 
 All kinds take effort, a note and (except runs) shoulder pain.
 
-A timed block's items have the rehab session shape (`hold`, `reps`, `time`; docs/rehab.md), so the player runs them unchanged. Exercises come from the rehab atlas (animated) or from `BLOCKS.CAT` (no animation yet: the player shows a simple stage with the track's icon, the name, the dose and three cues).
+A timed block's items have the rehab session shape (`hold`, `reps`, `time`; docs/rehab.md), so the player runs them unchanged. Exercises come from the rehab atlas (`ATLAS.EX`) or from `BLOCKS.CAT`.
+
+### Block exercises and their animations
+
+`BLOCKS.CAT` holds the block exercises (name, track, three cues). Each has an animation in the engine, `ATLAS.MOVES` in core.js (dose and load for the atlas card, camera, props, key poses); `CAT[id]` is that same object with the name, cues and track added, so the player, the atlas cards and "Ćwicz z zegarem" all use it. An exercise without an entry in `MOVES` falls back to `plain` (the player draws a simple stage with the track's icon). tests/test-blocks-logic.js checks that every block exercise has an animation and renders with a finite frame.
+
+- Moves: finger warm-up; hangboard hang (20 and 15 mm, feet on a chair, shoulders active); push-up; ring support hold; ring push-up; ring plank; knee tucks with feet in rings; plank; side plank (right forearm, left hand on the hip); hollow hold; dead bug; calf, hamstring, quad, hip-flexor and glute stretches; child's pose.
+- New engine pieces: the `footrings` prop (rings around the ankles, straps up to an anchor), and the anchor points `lFt`, `rFt` (ankles) and `core` (mid-torso, for the glow).
+- Helpers next to the moves: `HG` (hangboard pose), `RS` (ring support), `fplank` (forearm plank), `BACK` (lying on the back, head towards −z).
+- The Atlas has a section "Bloki treningowe" (`#bloki-ruchy`) with these cards.
+- To tune a pose: `npm run sheet -- kolka-kolana,deska-bok` renders three frames (start, middle, hold) of any rehab or block exercise to shots/sheetN.svg.
 
 ## Starter library (`BUILTIN`, conservative, confirmed by the owner on 24 November 2026)
 
@@ -98,4 +108,4 @@ entry = { b, t, kind, name, done: true, at, dur?, km?, sec?, rpe?, pain?, grade?
 
 ## Next (stage 1b)
 
-Multi-week phases (etapy) and automatic progression, built on the logged blocks: training paces from the 5 km test, finger loads, push-up reps. Animations for the main new exercises.
+Multi-week phases (etapy) and automatic progression, built on the logged blocks: training paces from the 5 km test, finger loads, push-up reps.

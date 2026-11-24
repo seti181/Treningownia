@@ -20,7 +20,7 @@ const RATE_PTS = 2, WEEK_PTS = 25, WEEK_RUNS = 3, WEEK_CLIMBS = 3;
 const PLACES = ['Hala', 'Ściana', 'Skała', 'TRS'];
 const CLIMB_NOTE = 'Bez blokowania i dalekich sięgnięć lewą ręką, bez podciągania. Ból barku powyżej 3/10: zejdź z drogi.';
 
-// Ćwiczenia spoza atlasu rehabilitacji (bez animacji: odtwarzacz pokazuje nazwę, dawkę i wskazówki).
+// Ćwiczenia spoza atlasu rehabilitacji. Animacje są w silniku (ATLAS.MOVES); bez animacji (plain) odtwarzacz pokazuje ikonę.
 const CAT_LIST = [
   ['rozgrzewka-palce', 'Rozgrzewka palców', 'palce', ['Zaciskaj i otwieraj dłonie, krąż nadgarstkami', 'Kilka lekkich zwisów na dużym chwycie, stopy na ziemi', 'Palce mają być ciepłe przed pierwszym zwisem']],
   ['zwis-20', 'Zwis na listwie 20 mm', 'palce', ['Obie ręce, ręce proste, bez podciągania', 'Łopatki lekko w dół, barki daleko od uszu', 'Stopy na krześle odejmują ciężar: ma być ok. 7 z 10']],
@@ -42,7 +42,10 @@ const CAT_LIST = [
   ['r-plecy', 'Pozycja dziecka', 'rozc', ['Klęk, pośladki na piętach', 'Ręce daleko w przód, czoło w dół', 'Oddychaj w plecy']]
 ];
 const CAT = {};
-CAT_LIST.forEach(c => { CAT[c[0]] = { id: c[0], name: c[1], t: c[2], cues: c[3], plain: true }; });
+CAT_LIST.forEach(c => {
+  const m = A && A.MOVES ? A.MOVES.find(x => x.id === c[0]) : null;
+  CAT[c[0]] = Object.assign(m || { plain: true }, { id: c[0], name: c[1], t: c[2], cues: c[3] });
+});
 
 const H = (ex, sets, hold, rest, note) => ({ ex, kind: 'hold', sets, hold, rest, note: note || '' });
 const R = (ex, sets, reps, rest, note) => ({ ex, kind: 'reps', sets, reps, rest, note: note || '' });

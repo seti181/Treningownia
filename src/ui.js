@@ -2,7 +2,7 @@
   'use strict';
   var A = window.ATLAS;
   var byId = {};
-  A.EX.forEach(function (e) { byId[e.id] = e; });
+  A.EX.concat(A.MOVES || []).forEach(function (e) { byId[e.id] = e; });
   var reduce = false;
   try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
   var paused = reduce, speed = 1;
