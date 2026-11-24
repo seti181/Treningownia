@@ -848,6 +848,42 @@ if (tablist) tablist.addEventListener('keydown', e => {
   if (j >= 0) { e.preventDefault(); showTab(TABS[j], { focus: true }); }
 });
 
+// ================= atlas: wyszukiwanie =================
+// Karty mają data-q (nazwa, dawka, wskazówki, kategoria) bez polskich znaków; zapytanie normalizuje się tak samo.
+const fold = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+function filterAtlas(raw) {
+  // polska odmiana: dłuższe słowa porównujemy po rdzeniu (łydki ~ łydek, pompki ~ pompka)
+  const words = fold(raw).trim().split(/\s+/).filter(Boolean).map(w => (w.length >= 6 ? w.slice(0, -2) : w.length === 5 ? w.slice(0, 4) : w));
+  let n = 0;
+  document.querySelectorAll('#tab-atlas section.phase').forEach(sec => {
+    let k = 0;
+    sec.querySelectorAll('.card[data-q]').forEach(c => { const ok = words.every(w => c.dataset.q.indexOf(w) >= 0); c.hidden = !ok; if (ok) k++; });
+    sec.hidden = !k;
+    const chip = document.querySelector('#tab-atlas .chips [data-sec="' + sec.id + '"]');
+    if (chip) chip.hidden = !k;
+    n += k;
+  });
+  const x = $('atlas-x'), em = $('atlas-empty'), live = $('atlas-n');
+  if (x) x.hidden = !words.length;
+  if (em) { em.hidden = !!n || !words.length; em.textContent = n ? '' : 'Brak ćwiczeń dla „' + raw.trim() + '”. Spróbuj innego słowa, np. zwis, kółka, łydki.'; }
+  if (live) live.textContent = words.length ? (n ? n + ' ' + plural(n, 'ćwiczenie', 'ćwiczenia', 'ćwiczeń') : 'Brak ćwiczeń') : '';
+}
+let atlasTimer = 0;
+document.addEventListener('input', e => {
+  if (e.target.id !== 'atlas-q') return;
+  clearTimeout(atlasTimer);
+  const v = e.target.value;
+  atlasTimer = setTimeout(() => { filterAtlas(v); const first = document.querySelector('#tab-atlas section.phase:not([hidden])'); if (first && v.trim()) first.scrollIntoView({ block: 'start' }); }, 120);
+});
+document.addEventListener('keydown', e => {
+  if (e.target.id !== 'atlas-q') return;
+  if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.target.value = ''; filterAtlas(''); }
+  else if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+});
+document.addEventListener('click', e => {
+  if (e.target.closest('#atlas-x')) { const q = $('atlas-q'); if (q) { q.value = ''; filterAtlas(''); q.focus(); } }
+});
+
 // ================= dźwięk, głos, wibracje, blokada ekranu =================
 let ac = null, plVoice = null;
 let mode = 'voice';
@@ -1428,7 +1464,8 @@ if (hasSpeech) {
 renderAll();
 const h0 = (location.hash || '').replace('#', '');
 if (PAGES.indexOf(h0) >= 0) showTab(h0, { scroll: false });
-else if (/^faza-|^rozgrzewka$|^bloki-ruchy$/.test(h0)) { showTab('atlas', { scroll: false }); scrollToEl(h0); }
+else if (/^faza-|^rozgrzewka$|^ruchy-/.test(h0)) { showTab('atlas', { scroll: false }); scrollToEl(h0); }
+else if (h0 === 'bloki-ruchy') { showTab('atlas', { scroll: false }); scrollToEl('ruchy-palce'); }
 else showTab('dzis', { scroll: false });
 setSync(syncMode);
 syncNow();

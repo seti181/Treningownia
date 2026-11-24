@@ -114,6 +114,18 @@ async function open(browser, o) {
   // 4) ćwiczenie z atlasu
   {
     const { ctx, page } = await open(b, { time: T(11, 11, 18, 0), hash: '#atlas' });
+    // wyszukiwanie: bez polskich znaków, odmiana, kategoria, brak wyników, czyszczenie
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('#tab-atlas .card')].filter(c => !c.hidden).map(c => c.dataset.id));
+    await page.fill('#atlas-q', 'lydki'); await page.clock.runFor(300);
+    check('4 search "lydki" finds the calf stretch', (await shown()).join() === 'r-lydki', (await shown()).join());
+    await page.fill('#atlas-q', 'pompki'); await page.clock.runFor(300);
+    check('4 search "pompki" finds the push-ups (word stem)', (await shown()).includes('pompka-klasyczna') && (await shown()).includes('kolka-pompka'));
+    await page.fill('#atlas-q', 'core'); await page.clock.runFor(300);
+    check('4 search by category: core', (await shown()).length === 6 && (await page.locator('#tab-atlas .chips li:not([hidden])').count()) === 1);
+    await page.fill('#atlas-q', 'qqq'); await page.clock.runFor(300);
+    check('4 no results: message', /Brak ćwiczeń/.test(await page.textContent('#atlas-empty')) && (await page.isVisible('#atlas-empty')));
+    await page.click('#atlas-x'); await page.clock.runFor(100);
+    check('4 clear: everything back, 10 category chips', (await shown()).length > 50 && (await page.locator('#tab-atlas .chips li:not([hidden])').count()) === 10);
     await page.click('[data-ex="kolka-z-nogami"]'); await page.clock.runFor(1500);
     check('4 single exercise from the atlas opens the player', (await page.textContent('#pl-ex')) === 'Ćwiczenie z atlasu' && /Podciąganie na kółkach/.test(await page.textContent('#pl-name')));
     await page.screenshot({ path: OUT + 'v2-30-single.png' });

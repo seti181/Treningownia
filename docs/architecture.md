@@ -35,7 +35,8 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 - Tab bar (`TABS`): Dziś, Tydzień, Dziennik, Postęp, Więcej. Five tabs fill a 320px screen; anything new goes under Więcej or into an existing tab.
 - Pages under Więcej (`SUB`): `bloki`, `blok` (editor), `waga`, `atlas`, `plan` (Rehabilitacja barku), `ustawienia`. While one is open, the Więcej tab stays selected, and the page has a back button. `wpis` (the block log form) belongs to the page it was opened from (`topOf()`), and its back button returns there.
 - Every page is a `<section id="tab-<name>" role="tabpanel">`; rendered ones have a `<div id="<name>-in">`. The Atlas is static markup from the build.
-- A `#hash` opens any page (`#waga`, `#ustawienia`); `#faza-2` or `#rozgrzewka` opens the Atlas at that section. Arrow keys move along the tab bar (from a sub page they start at Więcej). Any element with `data-act="tab" data-v="<page>"` opens a page.
+- A `#hash` opens any page (`#waga`, `#ustawienia`); `#faza-2`, `#rozgrzewka` or `#ruchy-core` (and the other `ruchy-` categories) opens the Atlas at that section.
+- Atlas: a sticky bar with the search box (`#atlas-q`) and one scrolling row of 10 category chips (rehab phases plus Palce, Siła, Core, Rozciąganie, Bieganie); the animation buttons sit under the intro. Search (`filterAtlas` in trainer.js) matches every word against each card's `data-q` (name, internal id, dose, load, tips, category), without case or Polish letters, and by stem for words of 5+ letters (`łydki` finds `łydek`); it hides empty sections and their chips, says the count in an `aria-live` line, and Escape or × clears it. Arrow keys move along the tab bar (from a sub page they start at Więcej). Any element with `data-act="tab" data-v="<page>"` opens a page.
 
 ## Controller (`trainer.js`)
 

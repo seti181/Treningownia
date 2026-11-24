@@ -48,11 +48,14 @@ const ICO = {
   ring: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 1.5v6.2M16 1.5v6.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="13.6" r="4.6" fill="none" stroke="var(--accent)" stroke-width="2.6"/><circle cx="16" cy="13.6" r="4.6" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>'
 };
 
-function card(ex, idx) {
+// Tekst do wyszukiwania: bez wielkich liter i polskich znaków (tak samo normalizuje trener).
+const fold = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+function card(ex, idx, sec) {
+  const q = fold([ex.name, ex.id.replace(/-/g, ' '), ex.dose, ex.load, (ex.cues || []).join(' '), sec || ''].join(' '));
   const vb = A.view(ex).map(v => v.toFixed(1)).join(' ');
   const r = A.render(ex, A.stillTime(ex), ex.id, { full: true });
   const rung = ex.ph === 4 ? `<p class="rung">Szczebel ${idx + 1}</p>` : '';
-  return `<article class="card" data-id="${ex.id}">
+  return `<article class="card" data-id="${ex.id}" data-q="${esc(q)}">
 <button type="button" class="stage" aria-pressed="false" aria-label="Zatrzymaj lub wznów animację: ${esc(ex.name)}">
 <svg viewBox="${vb}" role="img" aria-label="Animacja: ${esc(ex.name)}" preserveAspectRatio="xMidYMid meet">${r.svg}</svg>
 <span class="badge"${r.badge ? '' : ' hidden'}>${esc(r.badge || '')}</span>
@@ -72,21 +75,28 @@ const sections = PH.map(p => {
   return `<section class="phase" id="${p.id}" style="--c:var(${p.c})">
 <div class="phase-head"><span class="tape"><span>${p.tape}</span></span><div><h2>${esc(p.name)}</h2><p class="phase-meta">${esc(p.meta)}</p></div></div>
 <div class="grid">
-${list.map((ex, i) => card(ex, i)).join('\n')}
+${list.map((ex, i) => card(ex, i, p.name + ' ' + p.chip)).join('\n')}
 </div>
 </section>`;
 }).join('\n');
 // Ruchy z bloków treningowych (palce, siła, core, rozciąganie): osobna sekcja atlasu, nazwy i wskazówki z katalogu bloków.
 const BLOCKSJS = require(path.join(SRC, 'blocks.js'));
-const MOVE_SEC = { id: 'bloki-ruchy', tape: 'B', chip: 'Bloki', name: 'Bloki treningowe · palce, siła, core, rozciąganie', meta: 'Ćwiczenia z bloków w zakładce Tydzień', c: '--p2' };
+const CORE = ['kolka-deska', 'kolka-kolana', 'deska', 'deska-bok', 'hollow', 'dead-bug'];
+const MOVE_SECS = [
+  { id: 'ruchy-palce', tape: 'P', chip: 'Palce', name: 'Palce · chwytotablica', meta: 'Rozgrzewka palców i zwisy na listwie', c: '--p3', has: m => m.t === 'palce' },
+  { id: 'ruchy-sila', tape: 'S', chip: 'Siła', name: 'Siła · pompki i kółka', meta: 'Pchanie i podpór, bez podciągania', c: '--accent', has: m => m.t === 'sila' && CORE.indexOf(m.id) < 0 },
+  { id: 'ruchy-core', tape: 'C', chip: 'Core', name: 'Core · brzuch i plecy', meta: 'Deski, łódka, martwy robak, kółka', c: '--p4', has: m => CORE.indexOf(m.id) >= 0 },
+  { id: 'ruchy-rozc', tape: 'R', chip: 'Rozciąganie', name: 'Rozciąganie', meta: 'Po biegu i pełne', c: '--p1', has: m => m.t === 'rozc' },
+  { id: 'ruchy-bieg', tape: 'B', chip: 'Bieganie', name: 'Bieganie · odcinki', meta: 'Trucht, szybki bieg, marsz w odtwarzaczu biegu', c: '--p2', has: m => m.t === 'bieg' }
+];
 const moveList = A.MOVES.filter(m => m.id !== 'zwis-15').map(m => BLOCKSJS.CAT[m.id]).filter(Boolean);
-const moveSection = `<section class="phase" id="${MOVE_SEC.id}" style="--c:var(${MOVE_SEC.c})">
-<div class="phase-head"><span class="tape"><span>${MOVE_SEC.tape}</span></span><div><h2>${esc(MOVE_SEC.name)}</h2><p class="phase-meta">${esc(MOVE_SEC.meta)}</p></div></div>
+const moveSection = MOVE_SECS.map(sec => `<section class="phase" id="${sec.id}" style="--c:var(${sec.c})">
+<div class="phase-head"><span class="tape"><span>${sec.tape}</span></span><div><h2>${esc(sec.name)}</h2><p class="phase-meta">${esc(sec.meta)}</p></div></div>
 <div class="grid">
-${moveList.map((ex, i) => card(ex, i)).join('\n')}
+${moveList.filter(sec.has).map((ex, i) => card(ex, i, sec.name + ' ' + sec.chip)).join('\n')}
 </div>
-</section>`;
-const chips = PH.concat([MOVE_SEC]).map(p => `<li><a class="chip" href="#${p.id}" style="--c:var(${p.c})"><i></i>${esc(p.chip)}</a></li>`).join('');
+</section>`).join('\n');
+const chips = PH.concat(MOVE_SECS).map(p => `<li data-sec="${p.id}"><a class="chip" href="#${p.id}" style="--c:var(${p.c})"><i></i>${esc(p.chip)}</a></li>`).join('');
 
 const painBtns = Array.from({ length: 11 }, (x, v) => `<button type="button" class="p-${v <= 3 ? 'ok' : v <= 5 ? 'warn' : 'bad'}" data-pain="${v}" aria-pressed="false" aria-label="Ból ${v} na 10">${v}</button>`).join('');
 const player = `<div id="player" class="player" role="dialog" aria-modal="true" aria-label="Trening" hidden>
@@ -209,14 +219,19 @@ ${panel('waga', 'wiecej')}
 <li><svg viewBox="0 0 30 16" aria-hidden="true"><g class="arrow"><line x1="3" y1="8" x2="19" y2="8" stroke-width="3"/><polygon points="28,8 18,2.5 18,13.5"/></g></svg>Kierunek nacisku</li>
 <li><svg viewBox="0 0 30 16" aria-hidden="true"><circle cx="15" cy="8" r="7" class="glowdot"/></svg>Tu pracuje lub ciągnie</li>
 </ul>
+<div class="ctl"><button type="button" class="pill" id="play" aria-pressed="false">Zatrzymaj animacje</button><button type="button" class="pill" id="speed" aria-pressed="false">Tempo 1×</button></div>
 </div>
 <div class="subbar"><div class="wrap">
-<ul class="chips">${chips}</ul>
-<div class="ctl"><button type="button" class="pill" id="play" aria-pressed="false">Zatrzymaj animacje</button><button type="button" class="pill" id="speed" aria-pressed="false">Tempo 1×</button></div>
+<div class="aq" role="search"><label class="sr-only" for="atlas-q">Szukaj ćwiczenia</label><svg class="ico aq-i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>` +
+`<input type="search" id="atlas-q" placeholder="Szukaj: zwis, pompka, łydki…" autocomplete="off" enterkeyhint="search" aria-describedby="atlas-n">` +
+`<button type="button" class="icon-btn aq-x" id="atlas-x" aria-label="Wyczyść wyszukiwanie" hidden>${ICO.x}</button></div>
+<ul class="chips" aria-label="Kategorie">${chips}</ul>
 </div></div>
+<p class="sr-only" id="atlas-n" aria-live="polite"></p>
 <div class="wrap">
 ${sections}
 ${moveSection}
+<p class="empty atlas-empty" id="atlas-empty" hidden></p>
 </div>
 </section>
 ${panel('plan', 'wiecej')}

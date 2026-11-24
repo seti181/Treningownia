@@ -108,7 +108,7 @@ A timed block's items have the rehab session shape (`hold`, `reps`, `time`; docs
 - Moves: finger warm-up; hangboard hang (20 and 15 mm, feet on a chair, shoulders active); push-up; ring support hold; ring push-up; ring plank; knee tucks with feet in rings; plank; side plank (right forearm, left hand on the hip); hollow hold; dead bug; calf, hamstring, quad, hip-flexor and glute stretches; child's pose.
 - New engine pieces: the `footrings` prop (rings around the ankles, straps up to an anchor), and the anchor points `lFt`, `rFt` (ankles) and `core` (mid-torso, for the glow).
 - Helpers next to the moves: `HG` (hangboard pose), `RS` (ring support), `fplank` (forearm plank), `BACK` (lying on the back, head towards −z).
-- The Atlas has a section "Bloki treningowe" (`#bloki-ruchy`) with these cards.
+- The Atlas shows them in five categories after the rehab phases: Palce (`#ruchy-palce`), Siła (`#ruchy-sila`), Core (`#ruchy-core`), Rozciąganie (`#ruchy-rozc`), Bieganie (`#ruchy-bieg`); the old `#bloki-ruchy` link opens Palce.
 - To tune a pose: `npm run sheet -- kolka-kolana,deska-bok` renders three frames (start, middle, hold) of any rehab or block exercise to shots/sheetN.svg.
 
 ## Starter library (`BUILTIN`, conservative, confirmed by the owner on 24 November 2026)
