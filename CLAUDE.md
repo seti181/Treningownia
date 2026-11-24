@@ -1,17 +1,23 @@
 # Treningownia: personal training app
 
-A phone-first web app with a Polish UI, built for one person: the owner. It started as a left-shoulder rehab trainer and is becoming the owner's whole training app: rehab, body weight, climbing and running. Grow it in small modules, following docs/roadmap.md, and check with the owner before committing to a big one.
+A phone-first web app with a Polish UI, built for one person: the owner. It started as a left-shoulder rehab trainer and is now the owner's whole training app: training blocks for running, climbing, fingers, strength and stretching, the shoulder rehab, body weight, and a points game with two levels (climbing and running). Live at https://seti181.github.io/Treningownia/. Grow it in small modules, following docs/roadmap.md, and check with the owner before committing to a big one.
 
 Personal context (body, injury history, schedule, how the owner likes to work) is in `CLAUDE.local.md`. Claude Code loads it automatically. It is in .gitignore because this repository may be public: never copy its details into tracked files. If it is missing, ask instead of guessing.
 
 ## Owner and goals
 
 - Talks to Claude in English, short and informal. Every word in the app is Polish.
-- The left shoulder is in rehab; that is why the app exists. Until the owner says rehab is finished, nothing new may load the left shoulder beyond what the current rehab phase allows: no lock-offs with the left arm, and anything done hanging (hangboard included) must fit the rehab phase. Ask when in doubt.
+- The left shoulder is in rehab (still on; the owner already climbs and runs, carefully). Until the owner says rehab is finished, nothing new may load the left shoulder beyond what the current rehab phase allows: no lock-offs with the left arm, and anything done hanging (hangboard included) must fit the rehab phase. Ask when in doubt.
 - Logs body weight daily.
 - Goals: a 1:20 half marathon (no race chosen yet) and climbing 7c. The app should become the owner's complete training app: log every session, show progress, suggest what to do today, and progress the training as the owner gets stronger, built from training blocks the owner can edit and move. The plan is in docs/roadmap.md.
 - Equipment: gymnastic rings, resistance bands, dumbbells, a bathroom scale, a door-frame pull-up bar, a hangboard (20 mm and 15 mm crimps), a top-rope-solo kit, access to a training wall. No gym machines, no smartwatch (manual entry). Ask before assuming anything else.
 - Before building a new module or anything big, sum up your understanding and the open questions, and wait for a go-ahead. Small fixes: just do them.
+
+## Status (24 November 2026)
+
+- Built and live: app shell and PWA, rehab, weight, training blocks with planner and editor, animations for every exercise, points, badges, streaks, weekly challenges, personal records, separate climbing and running levels with real-form lines. Details per area in docs/; the table is in docs/roadmap.md.
+- On hold: cloud sync (code ready; needs the owner's Firebase project).
+- Next, owner picks: a run interval timer with training paces, phases (etapy) with automatic progression, charts, quick wins (level-up celebration, streak protection, weight goal line). See docs/roadmap.md.
 
 ## Commands
 
@@ -105,7 +111,7 @@ dist/         build output, not in git
 ## Docs
 
 - docs/architecture.md: build, runtime modules, navigation, state shape, storage, backup, offline, design system, tests.
-- docs/blocks.md: training blocks: tracks, points, kinds, the starter library and week, state, screens.
+- docs/blocks.md: training blocks: tracks, points, levels, challenges, records, kinds, the starter library and week, exercise animations, state, screens.
 - docs/sync.md: account and cloud sync (Firebase), the sync loop, the one-time Firebase setup.
 - docs/rehab.md: rehab plan logic, phases and doses, the player, the animation engine.
 - docs/weight.md: weight tracking and its chart.
