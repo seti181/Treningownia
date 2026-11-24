@@ -113,8 +113,9 @@ function todayHTML(st, today, sync, now, prog, ui) {
   h += weightQuickHTML(st, today, ui || {}, 'wq', true);
   if (API.todayBlocksHTML) h += API.todayBlocksHTML(st, today, prog);
 
-  // sesje rehabilitacji
-  h += '<h2 class="sub-h">Rehabilitacja barku</h2>';
+  // sesje rehabilitacji (po jej zakończeniu: tylko profilaktyka, bez lekkich dni)
+  if (st.rehabDone) dp.sessions = dp.sessions.filter(s => s.id !== 'lekki');
+  h += st.rehabDone ? (dp.sessions.length ? '<h2 class="sub-h">Profilaktyka barku</h2>' : '') : '<h2 class="sub-h">Rehabilitacja barku</h2>';
   const firstOpen = dp.practice ? 0 : dp.sessions.findIndex(s => !PL.isDone(st, today, s.id));
   h += '<div class="sessions">';
   dp.sessions.forEach((s, i) => {
@@ -144,7 +145,7 @@ ${state}${wait}
 </article>`;
   });
   h += '</div>';
-  h += '<p class="pain-rule"><b>Ból w trakcie najwyżej 3/10</b>, a następnego ranka jak zwykle. Ostry ból, przeskakiwanie w barku albo mrowienie: przerwij i skonsultuj się.</p>';
+  if (dp.sessions.length) h += '<p class="pain-rule"><b>Ból w trakcie najwyżej 3/10</b>, a następnego ranka jak zwykle. Ostry ból, przeskakiwanie w barku albo mrowienie: przerwij i skonsultuj się.</p>';
   // wspinanie jest teraz blokiem w planie tygodnia (z przypomnieniem o barku), więc notatka rehabilitacji o nim znika
   const notes = dp.notes.filter(n => n.tag !== 'Wspinanie');
   if (notes.length) h += '<ul class="notes">' + notes.map(n => `<li><span class="note-tag">${esc(n.tag)}</span>${esc(n.text)}</li>`).join('') + '</ul>';
@@ -514,6 +515,17 @@ function planHTML(st, today, prog, ui, sync) {
     (sl ? `<label class="fld sm"><span>Dzień treningowy</span><input type="number" id="st-day" min="1" max="${sl + 14}" value="${ui.stDay || (sp === st.phase ? pd : 1)}" inputmode="numeric"></label>` : '') +
     (sp === 4 ? `<label class="fld sm"><span>Szczebel</span><select id="st-rung">${[1, 2, 3, 4, 5].map(r => `<option value="${r}"${r === (ui.stRung || st.rung) ? ' selected' : ''}>${r}</option>`).join('')}</select></label>` : '') +
     `</div><button type="button" class="go secondary" data-act="stage-set">Ustaw etap</button></section>`;
+  // koniec rehabilitacji: odblokowuje ciągnięcie, zostaje profilaktyka
+  h += `<section class="card form" id="koniec-rehab"><h2>Koniec rehabilitacji</h2>`;
+  if (st.rehabDone) {
+    h += `<p>Zakończona ${esc(longNoDay(st.rehabDone))}. Zostaje profilaktyka barku 2 razy w tygodniu, a w bibliotece jest blok „Podciąganie”.</p><div class="choices"><button type="button" class="chip-btn" data-act="rehab-undo">Cofnij: rehabilitacja trwa</button></div>`;
+  } else if (ui.rehabAsk) {
+    h += `<div class="confirm" role="alertdialog" aria-labelledby="rd-q"><p id="rd-q"><b>Na pewno?</b> Plan przejdzie na profilaktykę na stałe (2 krótkie sesje w tygodniu), znikną przypomnienia o barku przy wspinaniu, a w bibliotece pojawi się podciąganie. Zrób to, gdy spełniasz progi Fazy 4 albo fizjoterapeuta da zielone światło.</p>` +
+      `<div class="choices"><button type="button" class="chip-btn primary" data-act="rehab-done">Tak, rehabilitacja zakończona</button><button type="button" class="chip-btn" data-act="rehab-ask" data-v="0">Anuluj</button></div></div>`;
+  } else {
+    h += `<p>Gdy bark jest gotowy (progi Fazy 4 albo zgoda fizjoterapeuty), zakończ rehabilitację: odblokuje to podciąganie i trudniejsze zwisy.</p><button type="button" class="go secondary" data-act="rehab-ask" data-v="1">Rehabilitacja zakończona…</button>`;
+  }
+  h += '</section>';
   h += `<section class="card rules"><h2>Zasady bólu</h2><ul class="rl">
 <li><span class="dot ok"></span><b>0–3</b> w trakcie, poranek jak zwykle: kontynuuj, zwiększaj obciążenie, gdy pozwala faza.</li>
 <li><span class="dot warn"></span><b>4–5</b> albo poranek trochę gorszy: ten sam poziom, lżej, aż wróci zielone.</li>

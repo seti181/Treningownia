@@ -5,6 +5,8 @@ Added in November 2026. It is deliberately separate from the rehab plan: no poin
 ## Where it shows
 
 - **Dziś:** a "Waga dziś" row above the sessions: an input with "Zapisz" when today has no entry, or the value with "Zmień" when it has one, plus a "Wykres" link to the Waga page.
+- **Pace and goal date** (`weightStats().rate`, `.eta`): kg per week from the 7-day average over 30 days (or 14+ days of data), and the month the goal is reached at that rate (only when the weight moves towards the goal). Shown on the Waga page and the weight card on Postęp.
+- **Losing too fast** (`.fast`): the 7-day average drops more than 1% of body weight a week, two weeks in a row → a neutral note (info style, not a warning colour) to eat a bit more around training.
 - **Waga page** (Więcej → Waga, or `#waga`), in this order:
   1. The same "Waga dziś" row.
   2. The range switch (30 dni / 90 dni / Wszystko), one row above everything it scopes.

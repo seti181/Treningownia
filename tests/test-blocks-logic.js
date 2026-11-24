@@ -15,7 +15,13 @@ const noAnim = Object.keys(BL.CAT).filter(id => BL.CAT[id].plain || !BL.CAT[id].
 check('every block exercise has an animation', !noAnim.length, noAnim.join(', '));
 const bad = A.MOVES.filter(m => { try { A.render(m, A.stillTime(m), 't'); const v = A.view(m); return !v.every(isFinite); } catch (e) { return true; } });
 check('every move renders with a finite frame', !bad.length, bad.map(m => m.id).join(', '));
-check('no pulling exercises in built-in blocks (rehab rule)', !BL.BUILTIN.some(b => (b.items || []).some(i => /podciag|wioslow|australij|negatyw|lopatkowe|zwis-aktywny/.test(i.ex))));
+const PULL = /podciag|wioslow|australij|negatyw|lopatkowe|zwis-aktywny/;
+check('no pulling exercises in built-in blocks while rehab is on (rehab rule)', !BL.BUILTIN.some(b => !b.afterRehab && (b.items || []).some(i => PULL.test(i.ex))));
+const rd = PL.defaults(MON);
+check('pulling block hidden while rehab is on', !BL.allBlocks(rd).some(b => (b.items || []).some(i => PULL.test(i.ex))) && BL.climbNote(rd).length > 0);
+rd.rehabDone = MON;
+check('after the owner ends rehab: pulling block unlocked, no shoulder note on climbing', BL.allBlocks(rd).some(b => b.id === 'sila-podciaganie') && BL.climbNote(rd) === '');
+check('rehabDone survives sanitize', S.sanitize(JSON.parse(JSON.stringify(rd)), MON).rehabDone === MON);
 
 // przeniesienie, pominięcie, dodanie, usunięcie
 BL.moveItem(st, '2026-11-24', 'p0-palce-20', '2026-11-25', at(1));

@@ -10,6 +10,7 @@ Nominal lengths in **training days**: F1 7, F2 21, F3 21, F4 21, then F5 (mainte
 
 - **Training days, not calendar days.** `phaseDay(state, date)` = `dayOffset` + the number of days with a logged session between `phaseStart` and `date`. Phase 1 doses and the gate alert use it, so a break never pushes the owner onto harder doses.
 - **Break.** `breakInfo()` raises "Ostatni trening… X dni temu" after 3 or more days without training, with three choices: continue, start over, or go back a phase.
+- **End of rehab.** Only the owner decides: Rehabilitacja barku → "Koniec rehabilitacji" sets `rehabDone`, moves to phase 5 and unlocks pulling blocks (docs/blocks.md → After rehab). It can be undone. The rehab plan document stays the source of truth for when.
 - **Climbing notes.** `dayPlan()` still returns the plan's easy-climbing notes, but Dziś no longer shows them: climbing is a block (docs/blocks.md) and its card carries the shoulder reminder. The swimming notes still show.
 - **Gates.** The owner moves up a phase through the gate checklist (`GATES`, in the Postęp tab) or by hand on the Rehabilitacja barku page (Więcej). When the training day reaches the phase length, an alert appears; "Zostaję jeszcze tydzień" snoozes it for 7 days, and "Wróć" goes back a phase and restarts its day count. The gates are self-reported checkboxes.
 - **Plan actions** mutate the state, then `commit()`:

@@ -187,7 +187,7 @@ function todayBlocksHTML(st, today, prog) {
     } else if (!b) {
       h += `<p class="sess-list">Tego bloku nie ma już w bibliotece.</p><div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-remove" ${ds}>Usuń z dnia</button></div>`;
     } else {
-      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${b.kind === 'climb' ? `<p class="blk-warn">${esc(BL.CLIMB_NOTE)}</p>` : ''}`;
+      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${b.kind === 'climb' && BL.climbNote(st) ? `<p class="blk-warn">${esc(BL.climbNote(st))}</p>` : ''}`;
       h += timedRun(b)
         ? `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-start" ${ds}>${b.kind === 'run' ? 'Zacznij z zegarem' : 'Zacznij'}</button>`
         : `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-log" ${ds}>Zapisz trening</button>`;
@@ -223,7 +223,8 @@ function weekHTML(st, today, ui, prog) {
     h += `<li class="wk-day card${isToday ? ' is-today' : ''}${past ? ' is-past' : ''}" id="wk-${d}"><h2 class="wk-h"><span>${isToday ? 'Dziś' : esc(cap(PL.DAYS[PL.dow(d)]))}</span><small>${esc(dayMon(d))}</small></h2><ul class="wk-list">`;
     // rehabilitacja: automatycznie z planu, bez przenoszenia
     const dp = PL.dayPlan(d, st);
-    if (!dp.practice || d >= st.start) {
+    if (st.rehabDone) dp.sessions = dp.sessions.filter(s => s.id !== 'lekki');
+    if (dp.sessions.length && (!dp.practice || d >= st.start)) {
       const done = dp.sessions.filter(s => PL.isDone(st, d, s.id)).length;
       h += `<li class="wk-s wk-rehab"><span class="wk-k"><span class="tape" style="--c:var(${PL.PHASES[dp.phase].c})"><span>${PL.PHASES[dp.phase].tape}</span></span></span><span class="wk-t"><b>Rehabilitacja</b><small>${esc(dp.sessions.map(s => s.label).join(', '))}${done ? ' · zrobione ' + done + '/' + dp.sessions.length : ''}</small></span>${done && done >= dp.sessions.length ? ICON.check : ''}</li>`;
     }

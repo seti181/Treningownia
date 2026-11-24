@@ -57,6 +57,8 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
   blocks: { id: block | { del, at } }, week: null | { 0..6: [blockId] }, weekAt: ms | 0,
   days: { 'YYYY-MM-DD': { items: [ { k, b, skip? } ], at } }, blog: { 'YYYY-MM-DD': { k: entry | { del, at } } },
   climbBase: grade (default '6a'), runBase: 0..15, levelsAt: ms | 0,
+  cycle: null | { start: Monday, build: 1..8, recover: 0..3 }, cycleAt: ms | 0, props: { id: { s: 'ok' | 'no', d, at, text } },
+  rehabDone: null | 'YYYY-MM-DD', rehabDoneAt: ms | 0,
   updated: ms }
 ```
 
@@ -115,6 +117,7 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 | `tests/test-pwa.js` | served on localhost: manifest and icons, the service worker takes control, then with the server stopped and the browser offline the app still loads and saves |
 | `tests/test-app.js` | every tab and page, the back button, arrow keys, break alert, restart, manual stage, a full session with points, the journal, a single atlas exercise, dark desktop, 320px, the weight flows (scenarios 7 and 8) |
 | `tests/test-blocks.js` | a Tuesday on the phone: block cards, a timed block in the player, logging a climb and yesterday's run (pace, errors, Enter), moving, adding, skipping, other weeks, Mój tydzień, editing and creating blocks, the journal entry outside the plan, Postęp; 320px and dark |
+| `tests/test-run.js` | the run player (segments, "Dopisz dystans"), the 5 km test timed to "Meta", training paces, the charts' readout, a progression proposal accepted on Dziś, the cycle setting, the level-up celebration, ending and undoing rehab |
 | `tests/shots-weight.js` | screenshots only, for looking at |
 
 - Seed a state with `page.addInitScript` writing `localStorage[KEY]`. Control time with `page.clock.install({ time })` and `page.clock.runFor(ms)`.

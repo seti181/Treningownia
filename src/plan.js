@@ -143,7 +143,7 @@ function defaults(today) {
     v: 3, epoch: 0, start: d, phase: 1, phaseStart: d, dayOffset: 0, rung: 1, rungGreen: 0,
     snooze: null, breakAck: null, gates: {}, log: {}, morning: {}, events: [], weight: {}, weightGoal: null, weightGoalAt: 0,
     blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, climbBase: '6a', runBase: 0, levelsAt: 0,
-    cycle: { start: addDays(d, -((dow(d) + 6) % 7)), build: 3, recover: 1 }, cycleAt: 0, props: {}, updated: 0
+    cycle: { start: addDays(d, -((dow(d) + 6) % 7)), build: 3, recover: 1 }, cycleAt: 0, props: {}, rehabDone: null, rehabDoneAt: 0, updated: 0
   };
 }
 function hasLog(st, d) { const l = st.log[d]; return !!l && Object.keys(l).some(k => l[k] && l[k].done); }
@@ -225,7 +225,7 @@ function actRestart(st, date, wipe, now) {
     const keep = { weight: st.weight || {}, weightGoal: st.weightGoal == null ? null : st.weightGoal, weightGoalAt: st.weightGoalAt || 0,
       blocks: st.blocks || {}, week: st.week || null, weekAt: st.weekAt || 0, days: st.days || {}, blog: st.blog || {},
       climbBase: st.climbBase || '6a', runBase: st.runBase || 0, levelsAt: st.levelsAt || 0,
-      cycle: st.cycle || null, cycleAt: st.cycleAt || 0, props: st.props || {} };
+      cycle: st.cycle || null, cycleAt: st.cycleAt || 0, props: st.props || {}, rehabDone: st.rehabDone || null, rehabDoneAt: st.rehabDoneAt || 0 };
     const fresh = defaults(date);
     Object.keys(st).forEach(k => { delete st[k]; });
     Object.assign(st, fresh, keep, { epoch: now || Date.now() });

@@ -483,6 +483,13 @@ function blockAction(act, b, t) {
     case 'pat-del': { const dw = +b.dataset.v, list = (BL.pattern(state)[dw] || []).slice(); list.splice(+b.dataset.i, 1); BL.setPattern(state, dw, list, now()); commit(); focusIn('[data-act="pat-open"][data-v="' + dw + '"]'); return true; }
     case 'pat-open': ui.patAdd = +b.dataset.v >= 0 && ui.patAdd !== +b.dataset.v ? +b.dataset.v : -1; renderPanel('bloki'); if (ui.patAdd >= 0) focusIn('[data-act="pat-add"][data-v="' + ui.patAdd + '"]'); return true;
     case 'pat-add': { const dw = +b.dataset.v, list = (BL.pattern(state)[dw] || []).concat([b.dataset.s]); BL.setPattern(state, dw, list, now()); ui.patAdd = -1; commit(); focusIn('[data-act="pat-open"][data-v="' + dw + '"]'); return true; }
+    case 'rehab-ask': ui.rehabAsk = b.dataset.v === '1'; renderPanel('plan'); focusIn(ui.rehabAsk ? '[data-act="rehab-done"]' : '[data-act="rehab-ask"]'); return true;
+    case 'rehab-done':
+      state.rehabDone = t; state.rehabDoneAt = now(); ui.rehabAsk = false;
+      if (state.phase !== 5) PL.actSetStage(state, 5, 1, t, 0);
+      commit(); toast('Rehabilitacja zakończona: profilaktyka na stałe, podciąganie w bibliotece');
+      return true;
+    case 'rehab-undo': state.rehabDone = null; state.rehabDoneAt = now(); commit(); toast('Rehabilitacja trwa dalej'); return true;
     case 'pat-reset': state.week = null; state.weekAt = now(); commit(); toast('Tydzień startowy przywrócony'); return true;
     // propozycje zwiększeń
     case 'pr-ok': case 'pr-no': {

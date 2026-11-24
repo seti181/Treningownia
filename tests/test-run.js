@@ -123,6 +123,31 @@ const errors = [];
     check('5 Escape closes it', !(await p.isVisible('#lvup')));
     await c3.close();
   }
+  // 6) koniec rehabilitacji: potwierdzenie, podciąganie w bibliotece, bez przypomnienia przy wspinaniu, cofnięcie
+  {
+    const c4 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    const p = await c4.newPage();
+    p.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    await p.clock.install({ time: new Date(2026, 11, 1, 8, 0) }); // wtorek: palce i wspinanie
+    await p.addInitScript(() => { window.__NO_LEVELUP = true; });
+    await p.goto(APP); await p.clock.runFor(300);
+    const t4 = async q => ((await p.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    check('6 before: shoulder note on climbing, no pull-ups in the library', (await p.isVisible('#dzis-in .blk-warn')) && !(await (async () => { await go(p, 'bloki'); return /Podciąganie/.test(await t4('#bloki-in .lib-i >> nth=0') + await t4('#bloki-in')); })()));
+    await go(p, 'plan');
+    await p.click('[data-act="rehab-ask"]'); await p.clock.runFor(100);
+    await p.screenshot({ path: OUT + 'r-09-rehab-end.png', fullPage: true });
+    await p.click('[data-act="rehab-done"]'); await p.clock.runFor(200);
+    const s4 = await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+    check('6 confirmed: rehab done, maintenance phase', s4.rehabDone === '2026-12-01' && s4.phase === 5);
+    await go(p, 'bloki');
+    check('6 pull-ups unlocked in the library', /Podciąganie/.test(await t4('#bloki-in')));
+    await go(p, 'dzis');
+    check('6 Dziś: no shoulder note on climbing, no rehab light day', !(await p.isVisible('#dzis-in .blk-warn')) && !/Rehabilitacja barku/.test(await t4('#dzis-in')));
+    await go(p, 'plan');
+    await p.click('[data-act="rehab-undo"]'); await p.clock.runFor(200);
+    check('6 undo: rehab on again', (await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY)).rehabDone === null);
+    await c4.close();
+  }
   await b.close();
   finish(errors);
 })();

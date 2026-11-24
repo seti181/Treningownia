@@ -15,15 +15,10 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 
 ## Status (24 November 2026)
 
-- Built and live: app shell and PWA, rehab, weight, training blocks with planner and editor, animations for every exercise, points, badges, streaks, weekly challenges, personal records, separate climbing and running levels with real-form lines. Details per area in docs/; the table is in docs/roadmap.md.
-- On hold: cloud sync (code ready; needs the owner's Firebase project).
-- Next (approved by the owner, in this order; details in docs/roadmap.md → "Next: approved plan"):
-  1. Run player and training paces (start here): run blocks with segments, a guided interval timer, paces from the 5 km test, new run blocks.
-  2. Phases (etapy) and automatic progression: build/recovery weeks; proposals the owner accepts (km +10%, long run +1 km, hangboard time then 20 → 15 mm, more reps); never silent.
-  3. Charts and climbing details: weekly km, long runs, half-marathon trend, grade pyramid.
-  4. Quick wins: level-up celebration, streak protection, weight goal line and rate-of-loss note.
-  5. Later/conditional: unlock pulling when rehab ends, cloud sync, Android APK (Capacitor), Strava/GPX import.
-- At the start of each item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
+- Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts. Details per area in docs/; the table is in docs/roadmap.md.
+- Waiting on the owner: cloud sync (Firebase project), Android app (Capacitor OK and Android Studio), Strava/GPX (a watch), ending rehab (only they decide).
+- Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), a route list for climbing, hangboard loads.
+- Before each new item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
 
 ## Commands
 
@@ -43,13 +38,13 @@ Setup once: `npm install`, then `npx playwright install chromium`. Playwright is
 
 ```
 src/          app code, inlined into one HTML file by the build
-  core.js     animation engine + EX (33 rehab exercises) + MOVES (18 block exercises) → window.ATLAS
+  core.js     animation engine + EX (33 rehab exercises) + MOVES (21 block exercises incl. running) → window.ATLAS
   ui.js       atlas card animation loop
   plan.js     rehab plan, training days, points, weight helpers      → window.PLAN
-  blocks.js   training blocks: library, week pattern, day changes, block log, points, challenges, records → window.BLOCKS
+  blocks.js   training blocks: library, week pattern, day changes, block log, points, challenges, records, paces, cycle, proposals, chart data → window.BLOCKS
   store.js    storage key, sanitize, merge, canon, backup file       → window.STORE
   views.js    HTML builders for every panel, weight chart            → window.VIEWS
-  blocks-views.js  block screens (Dziś cards, Tydzień planner, log form, library, editor), added to VIEWS
+  blocks-views.js  block screens (Dziś cards, proposals, Tydzień planner, log form, library, cycle, editor, charts), added to VIEWS
   config.js   Firebase project (apiKey, projectId); empty = no sync  → window.CONFIG
   sync.js     Firebase Auth + Firestore over REST, no SDK            → window.CLOUD
   trainer.js  controller: navigation, events, player, forms, storage, sync, backup (IIFE, no globals)
@@ -83,7 +78,8 @@ dist/         build output, not in git
 - No native form submit: buttons are `type="button"` and Enter is handled in JS.
 - Colours come from the tokens in page.css. Traffic-light colours (`--ok`, `--warn`, `--bad`) mean good or bad, so never use them for weight going up or down.
 - Not medical advice. Don't change rehab doses, gates or pain rules unless the owner asks; the rehab plan document is the source of truth. New training plans start conservative and the owner confirms them.
-- While rehab is on: no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026).
+- While rehab is on: no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026). Pulling blocks are marked `afterRehab` and stay hidden until the owner uses "Koniec rehabilitacji" (`rehabDone`).
+- Progression is never silent: the app proposes, the owner accepts (docs/blocks.md → proposals). Running stays easy-only until the 5 km test and the owner's OK.
 - Before you finish: `npm test` passes, and after UI changes you have looked at the screenshots in shots/ (390px and 320px, light and dark).
 - Update the matching docs/ file, and this file if a command or rule changed, in the same change.
 
@@ -109,7 +105,8 @@ dist/         build output, not in git
 
 - Compare states with `canon()` (sorted-key JSON), never plain JSON, or sync writes when nothing changed.
 - Playwright: control time with `page.clock`, and use `reducedMotion: 'reduce'` for full sessions (animation frames make fast-forwarding slow). Blocked font requests are not errors (`ignorable()` in tests/check.js).
-- Test hooks: `window.__TRAINER_OFFSET` (ms) shifts the app's clock; `window.__TEST_FIREBASE = { apiKey, projectId }` points sync at a fake Firebase (tests/test-sync.js).
+- Test hooks: `window.__TRAINER_OFFSET` (ms) shifts the app's clock; `window.__TEST_FIREBASE = { apiKey, projectId }` points sync at a fake Firebase (tests/test-sync.js); `window.__NO_LEVELUP = true` keeps the level-up overlay from covering the page in flow tests.
+- Global CSS class names: check for clashes before adding one (a chart's type class `cc-bar` once collided with the bar style).
 - On GitHub Pages all of the account's repositories share one origin (`<user>.github.io`), so localStorage keys must stay app-specific (`treningownia-…`). Never rename them: the saved data would be lost.
 - The service worker serves the cached page when the network is slow or gone. Test it with `npm run preview` (localhost); a page opened as a file never registers it.
 - iPhone: a web app added to the home screen has its own storage, separate from Safari.
@@ -117,7 +114,7 @@ dist/         build output, not in git
 ## Docs
 
 - docs/architecture.md: build, runtime modules, navigation, state shape, storage, backup, offline, design system, tests.
-- docs/blocks.md: training blocks: tracks, points, levels, challenges, records, kinds, the starter library and week, exercise animations, state, screens.
+- docs/blocks.md: training blocks: tracks, points, run player and paces, cycle and proposals, charts, after rehab, levels, challenges, records, kinds, the starter library and week, exercise animations, state, screens.
 - docs/sync.md: account and cloud sync (Firebase), the sync loop, the one-time Firebase setup.
 - docs/rehab.md: rehab plan logic, phases and doses, the player, the animation engine.
 - docs/weight.md: weight tracking and its chart.

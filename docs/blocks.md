@@ -20,6 +20,38 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 - Badges: first run, first climb, first finger session, full week, 50 km, 100 km, 10 climbs, first challenge, 10 challenges, first record, 10 records.
 - Points are computed from the log in `PLAN.progress()` (which reads `BLOCKS.entries()`), never stored. The grade path on Postęp goes to 7c.
 
+## Runs: segments, the run player and training paces
+
+- A run block can hold timed segments (`items`, same shape as timed blocks) with extra fields: `lbl` (the state label and voice instead of "Ćwicz"/"Trzymaj", e.g. "Trucht", "Szybko", "Tempo"), `restLbl` (instead of "Przerwa", e.g. "Marsz"), `doneLbl` (button text for an open-ended leg, e.g. "Meta"), `measure` (this leg's time goes to the log), `est` (seconds, for the time estimate of an open-ended leg). Run blocks also have `zone` (`easy`, `steady`, `tempo`, `interval`, `test`) and `after: 'test'` (makes sense only after a 5 km test).
+- "Zacznij z zegarem" runs the segments in the player with the jogging, fast-running or walking animation (`trucht`, `bieg-szybko`, `marsz` in `ATLAS.MOVES`). At the end the run is logged with its time (or the measured leg), and "Dopisz dystans" opens the log form to add km and effort.
+- The 5 km test (`bieg-test5`): 10 min warm-up, then an open-ended test leg that ends on "Meta" (only this leg is timed), then a walk.
+- **Training paces** (`BLOCKS.paces`): from the latest believable 5 km test (4,9+ km, 2:30–15:00 per km, last 120 days). Zones as multiples of the test pace: easy 1,22–1,32, steady 1,12–1,18, tempo 1,04–1,08, interval 0,97–1,01, strides 0,88–0,94. Shown on run cards (`paceText`), in the library and on Postęp ("Tempa treningowe"). Without a test, easy runs say "na rozmowę" and the after-test blocks carry a note.
+- Built-in runs: easy run 40 min, long run 55 min, strides, 5 km test; after the test: tempo (10 + 20 + 10 min), intervals 6 × 3 min with 2 min jog, progression run. The default week has easy runs only until the test (owner, 24 November 2026).
+
+## Training cycle and progression proposals
+
+- `cycle = { start (Monday), build, recover }`, default 3 weeks build + 1 week recovery from the first Monday (`phaseOf`). Shown on Dziś and Tydzień ("Budowanie · tydzień 2 z 3"), changed on the Bloki page ("Cykl treningowy"; "bez cyklu" turns it off).
+- A recovery week: the km challenge target drops to 60% of the 4-week average, the long-run challenge is swapped out, and no increases are proposed.
+- **Proposals** (`proposals`, card "Propozycje" on Dziś, "Przyjmij" / "Nie teraz"). Nothing changes on its own; a declined proposal comes back after 7 days (`props[id] = { s, d, at, text }`); accepted ones change the block (like the editor) or the day plan and show in Dziennik as "Zmiana planu".
+  - Hangboard: last 2 sessions of the block (since its last change) rated effort ≤ 6 and pain ≤ 2 → +2 s per hang up to 15 s, then 20 mm → 15 mm at 10 s.
+  - Strength blocks: last 2 sessions effort ≤ 6, pain ≤ 2 → +1 rep in every reps item, +5 s on holds (max 60 s).
+  - Easy runs: last 2 runs effort ≤ 4 → +5 min (max 60). Long run: last run effort ≤ 5 → +5 min (max 120).
+  - 5 km test: after 6 logged runs, no test in 8 weeks → replace the next easy run from next Monday with the test.
+  - Paused when any block in the last 7 days had shoulder pain ≥ 4 or a morning check was red (`shoulderAlarm`).
+
+## Charts (Postęp: "Bieganie w liczbach", "Wspinanie w liczbach")
+
+- HTML/CSS columns (`colChart`) and horizontal bars (`hBars`) in blocks-views.js: one colour per chart (running `--p2`, climbing `--p4`), bars from zero, a readout row above the plot (tap a column; data-act `cc`, no re-render), axis labels every few columns, and a table under each chart.
+- Running (`runWeeks`, 12 weeks): km per week, longest run per week, predicted half marathon per week (dots, faster is higher, dashed 1:20 line).
+- Climbing (`climbStats`): hardest grade per session over 90 days (pyramid), sessions by place over 90 days, hardest grade per month over 6 months (dots, dashed 7c line).
+- Careful with class names: the plot type class is `cc-k-bar` / `cc-k-dot`, because `cc-bar` is the bar itself.
+
+## After rehab (`rehabDone`)
+
+- Rehabilitacja barku page → "Koniec rehabilitacji" (with a confirmation; can be undone). Sets `rehabDone` (date, synced by `rehabDoneAt`) and moves the rehab to phase 5 (maintenance).
+- Effects: blocks with `afterRehab` appear (the built-in "Podciąganie": active hang 3 × 10 s, pull-ups 4 × 3–5, ring rows 3 × 8–10, doses from the rehab plan's last phase); the climbing card loses the shoulder reminder (`climbNote`); Dziś and Tydzień show only the maintenance sessions, not the light days.
+- While rehab is on, `afterRehab` blocks are hidden everywhere (library, pickers, pattern editor).
+
 ## Levels: climbing and running (`progress().climb`, `progress().run`)
 
 Two separate level paths, plus the total points.
@@ -30,6 +62,8 @@ Two separate level paths, plus the total points.
 - **Real form**, next to each level on Postęp: climbing = hardest logged grade in the last 30 days (`BLOCKS.climbForm`); running = predicted half marathon from the best run of 3+ km with a time in the last 60 days, by Riegel's formula T2 = T1 · (D2/D1)^1.06, with the gap to 1:20 (`BLOCKS.runForm`).
 - Starting levels are set in Ustawienia → Poziomy startowe (`climbBase`, `runBase`, synced by the later `levelsAt`). Changing them doesn't remove points.
 - Shown in the header (climbing tag, running tag, total points from 560px up, streak), on Dziś (small card with both bars), on Postęp (two level cards, the climbing path and the running path), in toasts ("wspinanie: nowy poziom 6a+") and on the player's done screen (the level of the block's track).
+- **Level-up celebration:** when either level goes up, a full-screen moment (`#lvup`: new tag, sound and vibration, "Dalej" or Escape closes it; reduced motion skips the animation). It waits until the player closes, and changing a starting level doesn't trigger it. Tests that aren't about it set `window.__NO_LEVELUP = true`.
+- **Day streak protection:** one rest day per Monday–Sunday week doesn't break the streak (`progress().shields` lists those days); the streak stays alive the day after a rest day if that week still has its rest day.
 
 ## Weekly challenges (`BLOCKS.challenges(st, monday)`)
 

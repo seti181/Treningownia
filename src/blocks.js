@@ -19,6 +19,7 @@ const KINDS = ['timed', 'run', 'climb', 'simple'];
 const RATE_PTS = 2, WEEK_PTS = 25, WEEK_RUNS = 3, WEEK_CLIMBS = 3;
 const PLACES = ['Hala', 'Ściana', 'Skała', 'TRS'];
 const CLIMB_NOTE = 'Bez blokowania i dalekich sięgnięć lewą ręką, bez podciągania. Ból barku powyżej 3/10: zejdź z drogi.';
+const climbNote = st => (st.rehabDone ? '' : CLIMB_NOTE);
 
 // Ćwiczenia spoza atlasu rehabilitacji. Animacje są w silniku (ATLAS.MOVES); bez animacji (plain) odtwarzacz pokazuje ikonę.
 const CAT_LIST = [
@@ -81,6 +82,10 @@ const BUILTIN = [
       H('kolka-deska', 3, 30, 45, 'Przedramiona w kółkach'), R('kolka-kolana', 3, '10', 60, 'Stopy w kółkach')] },
   { id: 'sila-core', name: 'Core', kind: 'timed', t: 'sila', min: 12, gap: 20, note: 'Brzuch i plecy, bez obciążania barku.',
     items: [H('deska', 3, 30, 30), H('deska-bok', 4, 20, 20, 'Na zmianę: lewa, prawa'), H('hollow', 3, 20, 30), R('dead-bug', 3, '10', 30, 'Na każdą stronę')] },
+  // Odblokowane dopiero, gdy właściciel zakończy rehabilitację (st.rehabDone). Dawki z ostatniej fazy planu rehabilitacji.
+  { id: 'sila-podciaganie', name: 'Podciąganie', kind: 'timed', t: 'sila', min: 25, gap: 60, afterRehab: true, note: 'Po rehabilitacji: daleko od upadku mięśniowego, łopatki w dół przed każdym powtórzeniem.',
+    items: [T('rozgrzewka', 120, 'Luźno, w zakresie bez bólu'), H('zwis-aktywny', 3, 10, 60, 'Łopatki w dół przez cały zwis'), R('podciaganie', 4, '3–5', 150, 'Daleko od upadku mięśniowego'),
+      R('australijskie', 3, '8–10', 90, 'Ciało proste, klatka do kółek')] },
   { id: 'rozc-bieg', name: 'Rozciąganie po biegu', kind: 'timed', t: 'rozc', min: 10, gap: 10, note: 'Zaraz po biegu, spokojnie, do lekkiego ciągnięcia.',
     items: [H('r-lydki', 2, 45, 10, 'Lewa, potem prawa'), H('r-tyl-uda', 2, 45, 10, 'Lewa, potem prawa'), H('r-przod-uda', 2, 45, 10, 'Lewa, potem prawa'), H('r-biodra', 2, 45, 10, 'Lewa, potem prawa')] },
   { id: 'rozc-pelne', name: 'Rozciąganie pełne', kind: 'timed', t: 'rozc', min: 20, gap: 10, note: 'Całe ciało, z rozciąganiem pod pachą z rehabilitacji.',
@@ -115,8 +120,10 @@ function getBlock(st, id) {
 }
 const isBuiltin = id => !!BUILTIN_BY[id];
 const isEdited = (st, id) => isBuiltin(id) && !!(st.blocks && st.blocks[id] && !st.blocks[id].del);
+// Ćwiczenia z ciągnięciem tylko po rehabilitacji.
+const unlocked = (st, b) => !b.afterRehab || !!st.rehabDone;
 function allBlocks(st) {
-  const out = BUILTIN.map(b => getBlock(st, b.id));
+  const out = BUILTIN.filter(b => unlocked(st, b)).map(b => getBlock(st, b.id));
   Object.keys(st.blocks || {}).sort().forEach(id => { const b = st.blocks[id]; if (!isBuiltin(id) && b && !b.del) out.push(b); });
   return out;
 }
@@ -570,7 +577,7 @@ function parseKm(s) {
 const GRADE_LIST = ['4a', '4b', '4c', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a'];
 
 const API = {
-  TRACKS, TRACK_IDS, KINDS, PLACES, CLIMB_NOTE, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
+  TRACKS, TRACK_IDS, KINDS, PLACES, CLIMB_NOTE, climbNote, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
