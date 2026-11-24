@@ -11,10 +11,12 @@ const SRC = path.join(ROOT, 'src');
 const DIST = path.join(ROOT, 'dist');
 const A = require(path.join(SRC, 'core.js'));
 const PLANJS = require(path.join(SRC, 'plan.js'));
+require(path.join(SRC, 'blocks.js'));
 const VIEWS = require(path.join(SRC, 'views.js'));
+require(path.join(SRC, 'blocks-views.js'));
 const read = f => fs.readFileSync(path.join(SRC, f), 'utf8');
-// Kolejność ma znaczenie: każdy plik korzysta z tego, co wystawiły poprzednie (window.ATLAS, PLAN, STORE, VIEWS, CONFIG, CLOUD).
-const SCRIPTS = ['core.js', 'ui.js', 'plan.js', 'store.js', 'views.js', 'config.js', 'sync.js', 'trainer.js'];
+// Kolejność ma znaczenie: każdy plik korzysta z tego, co wystawiły poprzednie (window.ATLAS, PLAN, BLOCKS, STORE, VIEWS, CONFIG, CLOUD).
+const SCRIPTS = ['core.js', 'ui.js', 'plan.js', 'blocks.js', 'store.js', 'views.js', 'blocks-views.js', 'config.js', 'sync.js', 'trainer.js'];
 SCRIPTS.concat(['sw.js']).forEach(f => { if (/<\/script/i.test(read(f))) throw new Error('script close tag inside ' + f); });
 const playerCss = read('player.css');
 const BUILD_DAY = '2026-11-12';
@@ -207,6 +209,9 @@ ${sections}
 </section>
 ${panel('plan', 'wiecej')}
 ${panel('ustawienia', 'wiecej')}
+${panel('bloki', 'wiecej')}
+${panel('blok', 'wiecej')}
+${panel('wpis', 'dzis')}
 </main>
 <footer><div class="wrap">
 <p>Progi przejścia między fazami, zasady bólu i suplementy są w planie: <a href="${PLAN}">Plan rehabilitacji lewego barku</a>.</p>

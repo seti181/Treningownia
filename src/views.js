@@ -32,8 +32,10 @@ const ICON = {
 };
 const BADGE_ICON = {
   pierwszy: 'star', pelny: 'sun', dni3: 'flame', dni7: 'flame', dni14: 'flame', dni30: 'flame', poranek: 'sun', bol: 'pulse',
-  powrot: 'back', faza2: 'peak', faza3: 'peak', faza4: 'peak', faza5: 'peak', szczebel5: 'ring', sesje25: 'check', sesje50: 'check', sesje100: 'check'
+  powrot: 'back', faza2: 'peak', faza3: 'peak', faza4: 'peak', faza5: 'peak', szczebel5: 'ring', sesje25: 'check', sesje50: 'check', sesje100: 'check',
+  bieg1: 'star', wspin1: 'peak', palce1: 'pulse', tydzien: 'sun', km50: 'flame', km100: 'flame', wspin10: 'peak'
 };
+const BLK = () => G.BLOCKS;
 const kg1 = v => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 const signedKg = v => (Math.abs(v) < 0.05 ? 'bez zmian' : (v > 0 ? '+' : '\u2212') + kg1(Math.abs(v)) + ' kg');
 const dayMonY = (d, today) => dayMon(d) + (today && d.slice(0, 4) !== today.slice(0, 4) ? ' ' + d.slice(0, 4) : '');
@@ -93,8 +95,10 @@ function todayHTML(st, today, sync, now, prog, ui) {
   }
 
   h += weightQuickHTML(st, today, ui || {}, 'wq', true);
+  if (API.todayBlocksHTML) h += API.todayBlocksHTML(st, today, prog);
 
-  // sesje
+  // sesje rehabilitacji
+  h += '<h2 class="sub-h">Rehabilitacja barku</h2>';
   const firstOpen = dp.practice ? 0 : dp.sessions.findIndex(s => !PL.isDone(st, today, s.id));
   h += '<div class="sessions">';
   dp.sessions.forEach((s, i) => {
@@ -125,7 +129,9 @@ ${state}${wait}
   });
   h += '</div>';
   h += '<p class="pain-rule"><b>Ból w trakcie najwyżej 3/10</b>, a następnego ranka jak zwykle. Ostry ból, przeskakiwanie w barku albo mrowienie: przerwij i skonsultuj się.</p>';
-  if (dp.notes.length) h += '<ul class="notes">' + dp.notes.map(n => `<li><span class="note-tag">${esc(n.tag)}</span>${esc(n.text)}</li>`).join('') + '</ul>';
+  // wspinanie jest teraz blokiem w planie tygodnia (z przypomnieniem o barku), więc notatka rehabilitacji o nim znika
+  const notes = dp.notes.filter(n => n.tag !== 'Wspinanie');
+  if (notes.length) h += '<ul class="notes">' + notes.map(n => `<li><span class="note-tag">${esc(n.tag)}</span>${esc(n.text)}</li>`).join('') + '</ul>';
 
   // mini postęp
   const g = prog.grade;
@@ -139,8 +145,12 @@ ${state}${wait}
     const isToday = d === today;
     const nDone = p.sessions.filter(s => PL.isDone(st, d, s.id)).length;
     const full = nDone > 0 && nDone >= p.sessions.length;
-    const label = (isToday ? 'Dziś, ' : '') + PL.longDate(d) + ': ' + p.sessions.map(s => s.label + ' ' + s.title).join(', ') + (p.notes.length ? '; ' + p.notes.map(n => n.tag).join(', ') : '') + (full ? '; zrobione' : '');
-    h += `<li class="day${isToday ? ' is-today' : ''}${full ? ' is-done' : ''}" aria-label="${esc(label)}"><span class="d-name">${isToday ? 'Dziś' : PL.DSHORT[wd]}</span><span class="d-num">${PL.parse(d).getDate()}</span><span class="d-what">${full ? ICON.check : ''}${esc(p.sessions[0].short)}</span>${p.notes.length ? `<span class="d-extra">${esc(p.notes.map(n => n.short).join(' '))}</span>` : ''}</li>`;
+    const bl = BLK() ? BLK().dayView(st, d).filter(x => x.block && !x.skip) : [];
+    const tracks = [];
+    bl.forEach(x => { if (x.block.t !== 'rozc' && tracks.indexOf(x.block.t) < 0) tracks.push(x.block.t); });
+    const what = tracks.length ? tracks.map(t => BLK().TRACKS[t].short).join(' ') : p.sessions[0].short;
+    const label = (isToday ? 'Dziś, ' : '') + PL.longDate(d) + ': ' + bl.map(x => x.block.name).concat(p.sessions.map(s => 'rehabilitacja ' + s.label)).join(', ') + (full ? '; rehabilitacja zrobiona' : '');
+    h += `<li class="day${isToday ? ' is-today' : ''}${full ? ' is-done' : ''}" aria-label="${esc(label)}"><span class="d-name">${isToday ? 'Dziś' : PL.DSHORT[wd]}</span><span class="d-num">${PL.parse(d).getDate()}</span><span class="d-what">${full ? ICON.check : ''}${esc(what)}</span>${tracks.length ? `<span class="d-extra">${esc(p.sessions[0].short)}</span>` : ''}</li>`;
   }
   h += '</ol>';
   h += `<p class="sync">${esc(sync || '')}</p>`;
@@ -155,19 +165,23 @@ function calendarHTML(st, today) {
   for (let w = 0; w < 6; w++) {
     h += '<div class="cal-row" role="row">';
     for (let k = 0; k < 7; k++) {
-      const d = PL.addDays(first, w * 7 + k), l = st.log[d] || {};
+      const d = PL.addDays(first, w * 7 + k), l = st.log[d] || {}, bl = (st.blog && st.blog[d]) || {};
       const ids = Object.keys(l).filter(x => l[x] && l[x].done);
+      const bids = Object.keys(bl).filter(x => bl[x] && bl[x].done);
       let lv = 0;
       if (ids.length) lv = (ids.indexOf('rano') >= 0) !== (ids.indexOf('wieczor') >= 0) && ids.length === 1 ? 1 : 2;
+      if (bids.length) lv = 2;
       let mx = null;
       ids.forEach(x => { if (l[x].pain != null) mx = Math.max(mx == null ? 0 : mx, l[x].pain); });
+      bids.forEach(x => { if (bl[x].pain != null) mx = Math.max(mx == null ? 0 : mx, bl[x].pain); });
       const fut = d > today;
-      const lab = PL.longDate(d) + (ids.length ? ': ' + ids.map(x => l[x].label || x).join(', ') + (mx != null ? ', ból do ' + mx : '') : fut ? '' : ': bez treningu');
+      const names = ids.map(x => l[x].label || x).concat(bids.map(x => bl[x].name));
+      const lab = PL.longDate(d) + (names.length ? ': ' + names.join(', ') + (mx != null ? ', ból do ' + mx : '') : fut ? '' : ': bez treningu');
       h += `<span role="cell" class="cd l${lv}${d === today ? ' is-today' : ''}${fut ? ' is-fut' : ''}" title="${esc(lab)}" aria-label="${esc(lab)}"><em>${PL.parse(d).getDate()}</em>${mx != null ? `<i class="pd ${painLevel(mx)}"></i>` : ''}</span>`;
     }
     h += '</div>';
   }
-  return h + '</div><p class="cal-key"><span class="cd l2"></span>cały plan dnia <span class="cd l1"></span>część <i class="pd ok"></i><i class="pd warn"></i><i class="pd bad"></i>najwyższy ból dnia</p>';
+  return h + '</div><p class="cal-key"><span class="cd l2"></span>trening <span class="cd l1"></span>część rehabilitacji <i class="pd ok"></i><i class="pd warn"></i><i class="pd bad"></i>najwyższy ból dnia</p>';
 }
 function painChartHTML(st, today) {
   const N = 28, pts = [];
@@ -193,13 +207,20 @@ function painChartHTML(st, today) {
 }
 function progressHTML(st, today, prog) {
   const g = prog.grade;
-  const top = PL.GRADES.findIndex(x => x[0] === '7a');
-  let h = `<header class="t-head"><p class="eyebrow">Postęp</p><h1 class="t-title">Droga do 7a</h1></header>`;
-  h += `<section class="hero card">${gtag(g.name, 'xl')}<div class="hero-main"><p class="eyebrow">Twój poziom</p><p class="hero-pts"><b>${prog.total}</b> pkt</p>${bar(g.pct, 'lg')}<p class="hero-next">${gradeLine(g)}. 7a to Twój poziom sprzed kontuzji.</p></div></section>`;
+  const top = PL.GRADES.findIndex(x => x[0] === '7c');
+  let h = `<header class="t-head"><p class="eyebrow">Postęp</p><h1 class="t-title">Droga do 7c</h1></header>`;
+  h += `<section class="hero card">${gtag(g.name, 'xl')}<div class="hero-main"><p class="eyebrow">Twój poziom</p><p class="hero-pts"><b>${prog.total}</b> pkt</p>${bar(g.pct, 'lg')}<p class="hero-next">${gradeLine(g)}. Punkty dają rehabilitacja i każdy blok treningowy.</p></div></section>`;
   const hrs = Math.floor(prog.minutes / 60), mins = prog.minutes % 60;
-  h += `<div class="stats"><div class="stat"><b>${prog.sessions}</b><span>${plural(prog.sessions, 'sesja', 'sesje', 'sesji')}</span></div><div class="stat"><b>${prog.streak}</b><span>dni z rzędu</span></div><div class="stat"><b>${prog.best}</b><span>najdłuższa seria dni</span></div><div class="stat"><b>${hrs ? hrs + ' h ' : ''}${mins} min</b><span>czasu treningu</span></div></div>`;
-  // droga: wyceny od 4a do 7a
-  h += `<div class="route" role="img" aria-label="Poziom ${esc(g.name)} na drodze od 4a do 7a">`;
+  const all = prog.sessions + (prog.blocks || 0);
+  h += `<div class="stats"><div class="stat"><b>${all}</b><span>${plural(all, 'trening', 'treningi', 'treningów')}</span></div><div class="stat"><b>${prog.streak}</b><span>dni z rzędu</span></div><div class="stat"><b>${prog.best}</b><span>najdłuższa seria dni</span></div><div class="stat"><b>${hrs ? hrs + ' h ' : ''}${mins} min</b><span>czasu treningu</span></div></div>`;
+  if (BLK()) {
+    const ws = BLK().weekStats(st, today);
+    h += `<h2 class="sub-h">Ten tydzień</h2><section class="card wsum"><dl class="wsum-dl"><div><dt>Biegi</dt><dd><b>${ws.runs}</b>/${BLK().WEEK_RUNS}</dd></div><div><dt>Wspinanie</dt><dd><b>${ws.climbs}</b>/${BLK().WEEK_CLIMBS}</dd></div><div><dt>Kilometry</dt><dd><b>${BLK().fmtKm(ws.km)}</b></dd></div>` +
+      `<div><dt>Pełny tydzień</dt><dd>${ws.full ? 'zaliczony' : '+' + BLK().WEEK_PTS + ' pkt'}</dd></div></dl><button type="button" class="chip-btn" data-act="tab" data-v="tydzien">Plan tygodnia</button></section>`;
+    h += `<div class="stats stats-3"><div class="stat"><b>${BLK().fmtKm(prog.km || 0)}</b><span>km biegu łącznie</span></div><div class="stat"><b>${prog.climbs || 0}</b><span>${plural(prog.climbs || 0, 'wspinanie', 'wspinania', 'wspinań')}</span></div><div class="stat"><b>${prog.fullWeeks || 0}</b><span>pełne tygodnie</span></div></div>`;
+  }
+  // droga: wyceny od 4a do 7c
+  h += `<div class="route" role="img" aria-label="Poziom ${esc(g.name)} na drodze od 4a do 7c">`;
   for (let i = 0; i <= top; i++) {
     const nm = PL.GRADES[i][0];
     const f = i < g.i ? 1 : i === g.i ? (i === top ? 1 : g.pct) : 0;
@@ -228,15 +249,18 @@ function progressHTML(st, today, prog) {
   if (ph === 4) h += `<p class="pg-rung">Szczebel drabinki: <b>${st.rung} z 5</b> · treningi bez bólu na tym szczeblu: ${st.rungGreen}/2. Po dwóch wchodzisz wyżej sam (+${PL.RUNG_PTS} pkt).</p>`;
   h += '</section>';
   // zasady punktów
+  const TRS = BLK() ? BLK().TRACKS : {};
   h += `<details class="how card"><summary>Jak zdobywasz punkty</summary><table class="how-t"><tbody>
-<tr><td>Sesja rano lub po pracy (Faza 1)</td><td>${PL.SPTS.rano}</td></tr>
+${Object.keys(TRS).map(t => `<tr><td>Blok: ${esc(TRS[t].name.toLowerCase())}</td><td>${TRS[t].pts}</td></tr>`).join('')}
+${BLK() ? `<tr><td>Ocena wysiłku albo bólu przy bloku</td><td>+${BLK().RATE_PTS}</td></tr><tr><td>Pełny tydzień: ${BLK().WEEK_RUNS} biegi i ${BLK().WEEK_CLIMBS} wspinania</td><td>+${BLK().WEEK_PTS}</td></tr>` : ''}
+<tr><td>Sesja rehabilitacji rano lub po pracy (Faza 1)</td><td>${PL.SPTS.rano}</td></tr>
 <tr><td>Lekki dzień</td><td>${PL.SPTS.lekki}</td></tr>
 <tr><td>Trening siłowy</td><td>${PL.SPTS.sila}</td></tr>
 <tr><td>Drabinka zwisów (Faza 4)</td><td>${PL.SPTS.drabinka}</td></tr>
 <tr><td>Przerwana sesja</td><td>połowa</td></tr>
 <tr><td>Ocena bólu po sesji (każda wartość, także wysoka)</td><td>+${PL.PAIN_PTS}</td></tr>
 <tr><td>Poranna ocena barku</td><td>+${PL.MORNING_PTS}</td></tr>
-<tr><td>Dni z rzędu: ${PL.STREAK.map(x => x[0]).join(', ')}</td><td>${PL.STREAK.map(x => '+' + x[1]).join(', ')}</td></tr>
+<tr><td>Dni z rzędu (każdy trening): ${PL.STREAK.map(x => x[0]).join(', ')}</td><td>${PL.STREAK.map(x => '+' + x[1]).join(', ')}</td></tr>
 <tr><td>Powrót po co najmniej 5 dniach przerwy</td><td>+${PL.COMEBACK_PTS}</td></tr>
 <tr><td>Nowa faza po spełnieniu progów</td><td>${[2, 3, 4, 5].map(p => '+' + PL.PHASE_PTS[p]).join(', ')}</td></tr>
 <tr><td>Nowy szczebel drabinki</td><td>+${PL.RUNG_PTS}</td></tr>
@@ -442,7 +466,7 @@ function planHTML(st, today, prog, ui, sync) {
 <label class="check"><input type="checkbox" id="rs-wipe"${ui.rsWipe ? ' checked' : ''}><span>Wyczyść też historię i punkty</span></label>`;
   if (ui.confirm) {
     const d = when === 'today' ? today : when === 'tomorrow' ? t1 : (ui.rsDate || t1);
-    h += `<div class="confirm" role="alertdialog" aria-labelledby="rs-q"><p id="rs-q"><b>Na pewno?</b> Faza 1 zacznie się ${d === today ? 'dziś' : esc(PL.longDate(d))}${ui.rsWipe ? '. Historia i punkty zostaną usunięte na wszystkich urządzeniach. Pomiary wagi zostają.' : ', a historia i punkty zostaną.'}</p><div class="choices"><button type="button" class="chip-btn ${ui.rsWipe ? 'danger' : 'primary'}" data-act="restart-do">Tak, zacznij od nowa</button><button type="button" class="chip-btn" data-act="restart-cancel">Anuluj</button></div></div>`;
+    h += `<div class="confirm" role="alertdialog" aria-labelledby="rs-q"><p id="rs-q"><b>Na pewno?</b> Faza 1 zacznie się ${d === today ? 'dziś' : esc(PL.longDate(d))}${ui.rsWipe ? '. Historia rehabilitacji i jej punkty zostaną usunięte na wszystkich urządzeniach. Pomiary wagi i bloki treningowe zostają.' : ', a historia i punkty zostaną.'}</p><div class="choices"><button type="button" class="chip-btn ${ui.rsWipe ? 'danger' : 'primary'}" data-act="restart-do">Tak, zacznij od nowa</button><button type="button" class="chip-btn" data-act="restart-cancel">Anuluj</button></div></div>`;
   } else h += `<button type="button" class="go" data-act="restart-ask">Zacznij od nowa</button>`;
   h += '</section>';
   // etap ręcznie
@@ -474,38 +498,17 @@ function weightCardHTML(st, today) {
   return h + '<button type="button" class="chip-btn" data-act="tab" data-v="waga">Wykres i pomiary</button></section>';
 }
 
-// ---------- Tydzień ----------
-function weekHTML(st, today) {
-  const dp0 = PL.dayPlan(today, st);
-  const base = dp0.practice ? st.start : today;
-  let h = `<header class="t-head"><p class="eyebrow">Tydzień</p><h1 class="t-title">Najbliższe 7 dni</h1></header>`;
-  if (dp0.practice) h += `<div class="alert info"><p>Plan rehabilitacji zaczyna się ${esc(PL.longDate(st.start))}. Datę zmienisz w Więcej → Rehabilitacja barku.</p></div>`;
-  h += '<ol class="wk">';
-  for (let i = 0; i < 7; i++) {
-    const d = PL.addDays(base, i), p = PL.dayPlan(d, st), isToday = d === today;
-    const P = PL.PHASES[p.phase];
-    h += `<li class="wk-day card${isToday ? ' is-today' : ''}" style="--c:var(${P.c})"><h2 class="wk-h"><span>${isToday ? 'Dziś' : esc(cap(PL.DAYS[PL.dow(d)]))}</span><small>${esc(dayMon(d))}</small></h2><ul class="wk-list">`;
-    p.sessions.forEach(s => {
-      const lg = st.log[d] && st.log[d][s.id], done = !!(lg && lg.done);
-      h += `<li class="wk-s${done ? ' is-done' : ''}"><span class="wk-k">${tape(p.phase)}</span><span class="wk-t"><b>${esc(s.title)}</b><small>${esc(s.label)} · ok. ${Math.round(PL.seconds(s) / 60)} min${done ? ' · zrobione' : ''}</small></span>${done ? ICON.check : ''}</li>`;
-    });
-    p.notes.forEach(n => { h += `<li class="wk-s wk-note"><span class="note-tag">${esc(n.tag)}</span><span class="wk-t"><small>${esc(n.text)}</small></span></li>`; });
-    h += '</ul></li>';
-  }
-  h += '</ol>';
-  h += '<p class="w-note">Tu pojawią się też bieganie i wspinanie, z blokami treningowymi, które przesuniesz między dniami.</p>';
-  return h;
-}
-
 // ---------- Dziennik ----------
 const MORNING_TXT = { green: 'bark jak zwykle', yellow: 'bark trochę gorzej', red: 'bark gorzej i nie mija' };
 const MORNING_LV = { green: 'ok', yellow: 'warn', red: 'bad' };
 function journalHTML(st, today, prog, ui) {
   let h = `<header class="t-head"><p class="eyebrow">Dziennik</p><h1 class="t-title">Wszystkie wpisy</h1></header>`;
+  h += `<button type="button" class="go secondary jr-new" data-act="lg-new">Dodaj trening spoza planu</button>`;
   h += `<h2 class="sub-h">Kalendarz</h2>${calendarHTML(st, today)}`;
   const days = {};
-  const add = d => (days[d] = days[d] || { s: [], w: null, m: null });
+  const add = d => (days[d] = days[d] || { s: [], b: [], w: null, m: null });
   Object.keys(st.log).forEach(d => { const l = st.log[d] || {}; Object.keys(l).forEach(k => { if (l[k] && l[k].done) add(d).s.push({ k, e: l[k] }); }); });
+  if (BLK()) BLK().entries(st).forEach(x => { add(x.d).b.push(x); });
   PL.weightEntries(st).forEach(x => { add(x.d).w = x.kg; });
   Object.keys(st.morning).forEach(d => { add(d).m = st.morning[d]; });
   const list = Object.keys(days).filter(d => d <= today).sort().reverse();
@@ -522,6 +525,13 @@ function journalHTML(st, today, prog, ui) {
       const mins = r.e.dur ? Math.max(1, Math.round(r.e.dur / 60)) + ' min' : '';
       li += `<li><span class="h-s">${esc(r.e.label || r.k)}${r.e.partial ? ' (przerwana)' : ''}${mins ? ' <small>' + mins + '</small>' : ''}</span>${pv}<span class="h-pts">+${prog.byEntry[d + '|' + r.k] || 0}</span>${r.e.note ? `<span class="h-n">${esc(r.e.note)}</span>` : ''}</li>`;
     });
+    x.b.forEach(r => {
+      const T = BLK().TRACKS[r.e.t];
+      const det = API.entryDetail ? API.entryDetail(r.e) : '';
+      li += `<li class="jr-b" style="--c:var(${T.c})"><span class="h-s">${esc(r.e.name)} <small>${esc(T.name)}</small></span>${det ? `<span class="h-x">${esc(det)}</span>` : ''}<span class="h-pts">+${prog.byEntry[d + '|b:' + r.k] || 0}</span>` +
+        `<button type="button" class="icon-btn h-ed" data-act="b-log" data-d="${d}" data-k="${esc(r.k)}" aria-label="Popraw wpis: ${esc(r.e.name)}">${ICON.chev}</button>${r.e.note ? `<span class="h-n">${esc(r.e.note)}</span>` : ''}</li>`;
+    });
+    if (prog.byEntry[d + '|week']) li += `<li><span class="h-s">Pełny tydzień</span><span class="h-pts">+${prog.byEntry[d + '|week']}</span></li>`;
     if (x.w != null) li += `<li><span class="h-s">Waga</span><span class="h-w">${kg1(x.w)} kg</span></li>`;
     return li + '</ul></li>';
   }).join('') + '</ol>';
@@ -531,6 +541,7 @@ function journalHTML(st, today, prog, ui) {
 
 // ---------- Więcej ----------
 const MENU = [
+  ['bloki', 'Bloki treningowe', 'Biblioteka bloków i Twój domyślny tydzień'],
   ['waga', 'Waga', 'Pomiary, średnia z 7 dni i cel'],
   ['atlas', 'Atlas ćwiczeń', 'Wszystkie ćwiczenia w ruchu'],
   ['plan', 'Rehabilitacja barku', 'Faza, start od nowa, progi i zasady bólu'],
@@ -597,7 +608,7 @@ function settingsHTML(st, today, ui, sync) {
   return h;
 }
 
-const API = { headChip, todayHTML, weekHTML, journalHTML, progressHTML, weightHTML, weightChart, weightReadout, planHTML, moreHTML, settingsHTML, gtag, bar, gradeLine, dni, painLevel, kg1, relDay, ICON, esc };
+const API = { headChip, todayHTML, journalHTML, cap, dayMon, plural, subHead, tape, progressHTML, weightHTML, weightChart, weightReadout, planHTML, moreHTML, settingsHTML, gtag, bar, gradeLine, dni, painLevel, kg1, relDay, ICON, esc };
 G.VIEWS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

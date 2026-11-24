@@ -21,7 +21,9 @@ The shoulder rehab stays in the app and keeps its rules (CLAUDE.md): nothing new
 - Done: rehab trainer (5 phases, timed player, morning check, pain rules, points and grades, restart and break handling), 33 animated exercises, body-weight log with a trend chart.
 - Done (24 November 2026, stage 0 code): the new shell "Treningownia": navigation Dziś / Tydzień / Dziennik / Postęp / Więcej, installable and offline (PWA), account sync through Firebase (docs/sync.md), backup to a file, tests in CI before every deploy. Fresh data under new storage keys.
 - Live since 24 November 2026: https://seti181.github.io/Treningownia/ (public repository github.com/seti181/Treningownia; commits use the owner's GitHub no-reply address).
-- Waiting on the owner: create the Firebase project and send `apiKey` and `projectId` (docs/sync.md). Then: sign in on the phone.
+- Sync on hold (owner, 24 November 2026): the code is ready and tested; it switches on when the Firebase project exists and its `apiKey` and `projectId` go into src/config.js (docs/sync.md). Until then data stays on the phone; use the backup file.
+- Done (24 November 2026, stage 1a): training blocks (docs/blocks.md): starter library, default week, planner with move/skip/add, logging runs and climbs, block editor, points and badges for every block, the full-week bonus, "Droga do 7c".
+- Next: stage 1b, multi-week phases and automatic progression.
 
 ## Two levels of blocks
 
@@ -55,6 +57,8 @@ A rebuild around what already works: the player, the animation engine and its ex
 8. **Retire the claude.ai artifact** (done in the code: the build no longer makes it). The published artifact stays online with its old data, but gets no more updates.
 
 ### 1. Training blocks (the core)
+
+**1a done** (docs/blocks.md). Decisions: four kinds (timed in the player, run, climb, simple); moving is a button with the days of the week, not drag and drop; rehab stays automatic and appears on each day; points from the start (owner: "a game and fun from the start"). **1b next:** phases (etapy) and progression.
 
 - Data: `blocks` (templates), `phases` (etapy), `week` (the planned days, with the owner's moves) as new top-level state keys, with defaults, sanitize, merge and sync tests. Deletions as markers.
 - A block library with built-in blocks for each track plus the owner's own.
@@ -116,3 +120,5 @@ The owner wants points across all tracks, with new goalposts. Today points rewar
 - 2026-11-23: correction to 2026-11-01: the owner has a door-frame pull-up bar and a hangboard (20 and 15 mm). The rehab exercises stay on rings unless the owner asks to change them.
 - 2026-11-24: stage 0 built: Treningownia, five tabs plus pages under Więcej, new storage keys (`treningownia-*`), state v3, `store.js`, Firebase over REST with a version condition on every write, backup file, PWA, tests before deploy.
 - 2026-11-24: the main app is the GitHub Pages version on the owner's Android phone, installable and offline (PWA), with free cloud sync (Firebase proposed). An Android app (Capacitor) goes on the roadmap. The new app starts with fresh data; the claude.ai version is retired. Kept: the player, the animation engine and exercises, the rehab logic; everything around them is rebuilt.
+- 2026-11-24: sync on hold; focus on building the app. Stage 1 (training blocks) next. The owner already climbs and runs, carefully.
+- 2026-11-24: stage 1a built: blocks with four kinds, starter library and week confirmed by the owner (3 runs, 3 climbs, Sunday always a climb; fingers on the hangboard allowed with straight arms; push-ups, rings, core, stretching; no pull-ups). Points per block from the start (15/15/12/12/6, +2 for a rating, +25 for a full week); grade path to 7c.

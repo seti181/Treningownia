@@ -5,12 +5,14 @@ const A = window.ATLAS, PL = window.PLAN, V = window.VIEWS, S = window.STORE;
 const pl = document.getElementById('player');
 // Panele budowane z widoków (Atlas to gotowa treść z budowania).
 const panels = {};
-['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej', 'waga', 'plan', 'ustawienia'].forEach(k => { panels[k] = document.getElementById(k + '-in'); });
+['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej', 'waga', 'plan', 'ustawienia', 'bloki', 'blok', 'wpis'].forEach(k => { panels[k] = document.getElementById(k + '-in'); });
 const hdr = document.getElementById('hdr-prog');
 if (!A || !PL || !V || !S || !pl || !panels.dzis) return;
 
 const byId = {};
 A.EX.forEach(e => { byId[e.id] = e; });
+// Ćwiczenie z atlasu (z animacją) albo z katalogu bloków (bez animacji: plain).
+const exOf = id => byId[id] || (window.BLOCKS && window.BLOCKS.CAT[id]) || { id, name: id, cues: [], plain: true };
 const KEY = S.KEY, SKEY = 'treningownia-dzwiek';
 const OFF = +window.__TRAINER_OFFSET || 0; // tylko do testów: przesunięcie zegara
 const now = () => Date.now() + OFF;
@@ -131,15 +133,22 @@ async function doLogin(email, password) {
 // ================= zakładki i widoki =================
 // Pasek zakładek; podstrony z Więcej podświetlają zakładkę Więcej.
 const TABS = ['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej'];
-const SUB = { waga: 'wiecej', atlas: 'wiecej', plan: 'wiecej', ustawienia: 'wiecej' };
+const SUB = { waga: 'wiecej', atlas: 'wiecej', plan: 'wiecej', ustawienia: 'wiecej', bloki: 'wiecej', blok: 'wiecej', wpis: '' };
 const PAGES = TABS.concat(Object.keys(SUB));
+// Zakładka podświetlona dla strony: wpis należy do strony, z której go otwarto.
+function topOf(name) {
+  if (TABS.indexOf(name) >= 0) return name;
+  if (name === 'wpis') return topOf((ui.lg && ui.lg.back) || 'dzis');
+  return SUB[name] || 'dzis';
+}
 let tab = 'dzis', shownDay = today();
-const stale = { dzis: true, tydzien: true, dziennik: true, postep: true, wiecej: true, waga: true, plan: true, ustawienia: true };
+const stale = { dzis: true, tydzien: true, dziennik: true, postep: true, wiecej: true, waga: true, plan: true, ustawienia: true, bloki: true, blok: true, wpis: true };
 // Szkice formularzy trzymane poza DOM: panel może się przerysować w trakcie pisania (zapis, dane z innego urządzenia).
 const ui = {
   rsWhen: 'today', rsDate: '', rsWipe: false, confirm: false, stPhase: 0, stDay: 0, stRung: 0, sound: 'voice', hasVoice: false,
   wToday: '', wEdit: false, wErr: '', wRange: 30, wAll: false, wDel: '', wDate: '', wKg: '', wGoal: null,
-  jAll: false, lEmail: '', lErr: '', lBusy: false, bk: null, bkErr: ''
+  jAll: false, lEmail: '', lErr: '', lBusy: false, bk: null, bkErr: '',
+  wkOff: 0, wkOpen: '', wkMove: '', wkAdd: '', lg: null, patAdd: -1, blDel: '', blNew: false, ed: null, edAdd: false, edErr: ''
 };
 function renderPanel(name) {
   const box = panels[name];
@@ -150,14 +159,17 @@ function renderPanel(name) {
     if (ae.id) sel = '#' + ae.id;
     else if (ae.dataset && ae.dataset.act) {
       sel = '[data-act="' + ae.dataset.act + '"]';
-      ['i', 'v', 's', 'd'].forEach(k => { if (ae.dataset[k] != null) sel += '[data-' + k + '="' + ae.dataset[k] + '"]'; });
+      ['i', 'v', 's', 'd', 'k'].forEach(k => { if (ae.dataset[k] != null) sel += '[data-' + k + '="' + ae.dataset[k] + '"]'; });
     } else if (ae.name) sel = '[name="' + ae.name + '"][value="' + ae.value + '"]';
     if (ae.tagName === 'INPUT' && ae.type === 'text') { try { caret = [ae.selectionStart, ae.selectionEnd]; } catch (e) { caret = null; } }
   }
   const t = shownDay, sync = SYNC[syncMode];
   ui.acct = cloudOn ? cloud.account() : null;
   if (name === 'dzis') box.innerHTML = V.todayHTML(state, t, sync, now(), prog, ui);
-  else if (name === 'tydzien') box.innerHTML = V.weekHTML(state, t);
+  else if (name === 'tydzien') box.innerHTML = V.weekHTML(state, t, ui, prog);
+  else if (name === 'bloki') box.innerHTML = V.libraryHTML(state, ui);
+  else if (name === 'blok') box.innerHTML = V.editorHTML(state, ui);
+  else if (name === 'wpis') box.innerHTML = V.logFormHTML(state, t, ui);
   else if (name === 'dziennik') box.innerHTML = V.journalHTML(state, t, prog, ui);
   else if (name === 'postep') box.innerHTML = V.progressHTML(state, t, prog);
   else if (name === 'wiecej') box.innerHTML = V.moreHTML(state, t, ui);
@@ -192,7 +204,7 @@ function renderAll() {
 function showTab(name, opts) {
   if (PAGES.indexOf(name) < 0) name = 'dzis';
   tab = name;
-  const top = SUB[name] || name;
+  const top = topOf(name);
   TABS.forEach(t => {
     const b = $('tb-' + t);
     if (b) { b.setAttribute('aria-selected', t === top ? 'true' : 'false'); b.tabIndex = t === top ? 0 : -1; }
@@ -311,6 +323,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled || pl.contains(b)) return;
   const act = b.dataset.act, t = today();
+  if (blockAction(act, b, t)) return;
   switch (act) {
     case 'start': startSession(b.dataset.s, b); break;
     case 'tab': showTab(b.dataset.v); break;
@@ -388,6 +401,196 @@ document.addEventListener('click', e => {
     }
   }
 });
+// ---------- bloki treningowe ----------
+const BL = window.BLOCKS;
+function blockAction(act, b, t) {
+  const d = b.dataset.d, k = b.dataset.k;
+  switch (act) {
+    case 'b-start': startBlock(d, k, b); return true;
+    case 'b-log': openLog(d, k); return true;
+    case 'b-skip': BL.skipItem(state, d, k, b.dataset.v === '1', now()); ui.wkOpen = ''; commit(); toast(b.dataset.v === '1' ? 'Pominięte' : 'Przywrócone'); return true;
+    case 'b-remove': BL.removeItem(state, d, k, now()); ui.wkOpen = ''; commit(); toast('Usunięte z dnia'); return true;
+    case 'b-move-open': ui.wkOff = Math.round(PL.diff(BL.weekStart(t), BL.weekStart(d)) / 7); ui.wkOpen = ui.wkMove = d + '|' + k; stale.tydzien = true; showTab('tydzien', { scroll: false }); scrollToEl('wk-' + d); return true;
+    case 'b-move': {
+      const to = b.dataset.v;
+      const name = (BL.getBlock(state, (BL.dayItems(state, d).find(x => x.k === k) || {}).b) || {}).name || 'Blok';
+      const nk = BL.moveItem(state, d, k, to, now());
+      ui.wkMove = ''; ui.wkOpen = nk ? to + '|' + nk : '';
+      if (BL.weekStart(to) !== BL.weekStart(PL.addDays(BL.weekStart(t), (ui.wkOff || 0) * 7))) ui.wkOff = Math.round(PL.diff(BL.weekStart(t), BL.weekStart(to)) / 7);
+      commit();
+      toast(name + ' → ' + (to === t ? 'dziś' : PL.longDate(to)));
+      focusIn('[data-act="wk-open"][data-d="' + to + '"][data-k="' + nk + '"]');
+      return true;
+    }
+    case 'wk-open': { const key = d + '|' + k; ui.wkOpen = ui.wkOpen === key ? '' : key; ui.wkMove = ''; renderPanel('tydzien'); return true; }
+    case 'wk-move': { const key = d + '|' + k; ui.wkMove = ui.wkMove === key ? '' : key; renderPanel('tydzien'); return true; }
+    case 'wk-add': ui.wkAdd = d || ''; ui.wkOpen = ''; renderPanel('tydzien'); if (d) focusIn('[data-act="b-add"][data-d="' + d + '"]'); else focusIn('#tydzien-in .wk-plus'); return true;
+    case 'b-add': { const bl = BL.getBlock(state, b.dataset.s); BL.addItem(state, d, b.dataset.s, now()); ui.wkAdd = ''; commit(); toast('Dodane: ' + (bl ? bl.name : '')); focusIn('.wk-plus[data-d="' + d + '"]'); return true; }
+    case 'wk-prev': case 'wk-next': ui.wkOff = (ui.wkOff || 0) + (act === 'wk-next' ? 1 : -1); Object.assign(ui, { wkOpen: '', wkMove: '', wkAdd: '' }); renderPanel('tydzien'); return true;
+    // wpis
+    case 'lg-new': openLog(t, '', true); return true;
+    case 'lg-set': { const p = b.dataset.v.split(':'), f = ui.lg.f; const v = p[0] === 'place' ? p[1] : +p[1]; f[p[0]] = f[p[0]] === v ? null : v; renderPanel('wpis'); return true; }
+    case 'lg-save': saveLog(); return true;
+    case 'lg-cancel': closeLog(); return true;
+    case 'lg-del': { const lg = ui.lg; BL.delLog(state, lg.d, lg.k, now()); commit(); toast('Wpis usunięty'); closeLog(); return true; }
+    // Mój tydzień
+    case 'pat-del': { const dw = +b.dataset.v, list = (BL.pattern(state)[dw] || []).slice(); list.splice(+b.dataset.i, 1); BL.setPattern(state, dw, list, now()); commit(); focusIn('[data-act="pat-open"][data-v="' + dw + '"]'); return true; }
+    case 'pat-open': ui.patAdd = +b.dataset.v >= 0 && ui.patAdd !== +b.dataset.v ? +b.dataset.v : -1; renderPanel('bloki'); if (ui.patAdd >= 0) focusIn('[data-act="pat-add"][data-v="' + ui.patAdd + '"]'); return true;
+    case 'pat-add': { const dw = +b.dataset.v, list = (BL.pattern(state)[dw] || []).concat([b.dataset.s]); BL.setPattern(state, dw, list, now()); ui.patAdd = -1; commit(); focusIn('[data-act="pat-open"][data-v="' + dw + '"]'); return true; }
+    case 'pat-reset': state.week = null; state.weekAt = now(); commit(); toast('Tydzień startowy przywrócony'); return true;
+    // biblioteka
+    case 'bl-edit': { const bl = BL.getBlock(state, b.dataset.v); if (bl) openEditor(JSON.parse(JSON.stringify(bl))); return true; }
+    case 'bl-copy': { const id = BL.copyBlock(state, b.dataset.v, now()); commit(); toast('Skopiowane: ' + BL.getBlock(state, id).name); focusIn('[data-act="bl-edit"][data-v="' + id + '"]'); return true; }
+    case 'bl-del': ui.blDel = b.dataset.v || ''; renderPanel('bloki'); focusIn(ui.blDel ? '[data-act="bl-del-yes"]' : '[data-act="bl-new"]'); return true;
+    case 'bl-del-yes': {
+      const id = b.dataset.v, own = !BL.isBuiltin(id);
+      BL.deleteBlock(state, id, now());
+      if (own) { const pat = BL.pattern(state); for (let i = 0; i < 7; i++) if ((pat[i] || []).indexOf(id) >= 0) BL.setPattern(state, i, pat[i].filter(x => x !== id), now()); }
+      ui.blDel = '';
+      commit();
+      toast(own ? 'Blok usunięty' : 'Przywrócona wersja startowa');
+      return true;
+    }
+    case 'bl-new': ui.blNew = b.dataset.v === '1'; renderPanel('bloki'); focusIn(ui.blNew ? '[data-act="bl-new-t"]' : '[data-act="bl-new"]'); return true;
+    case 'bl-new-t': {
+      const tr = b.dataset.v, kind = tr === 'bieg' ? 'run' : tr === 'wspin' ? 'climb' : 'timed';
+      ui.blNew = false;
+      openEditor({ id: null, name: '', t: tr, kind, min: kind === 'timed' ? 0 : 45, note: '', gap: 30, items: [] });
+      return true;
+    }
+    // edytor
+    case 'ed-up': case 'ed-down': {
+      const i = +b.dataset.i, j = act === 'ed-up' ? i - 1 : i + 1, it = ui.ed.items;
+      if (j < 0 || j >= it.length) return true;
+      const x = it[i]; it[i] = it[j]; it[j] = x;
+      renderPanel('blok');
+      focusIn('[data-act="' + act + '"][data-i="' + j + '"]:not([disabled])') ;
+      return true;
+    }
+    case 'ed-del': ui.ed.items.splice(+b.dataset.i, 1); renderPanel('blok'); focusIn('[data-act="ed-add-open"]'); return true;
+    case 'ed-add-open': ui.edAdd = b.dataset.v === '1'; renderPanel('blok'); focusIn(ui.edAdd ? '#ed-add-ex' : '[data-act="ed-add-open"]'); return true;
+    case 'ed-add': {
+      const sel = $('ed-add-ex');
+      if (!sel) return true;
+      const id = sel.value, prev = ui.ed.items[ui.ed.items.length - 1];
+      ui.ed.items.push(prev && prev.kind === 'reps' ? { ex: id, kind: 'reps', sets: 3, reps: '10', rest: 60, note: '' } : { ex: id, kind: 'hold', sets: 3, hold: 20, rest: 30, note: '' });
+      ui.edAdd = false; ui.edErr = '';
+      renderPanel('blok');
+      focusIn('.ed-f[data-i="' + (ui.ed.items.length - 1) + '"][data-f="kind"]');
+      return true;
+    }
+    case 'ed-save': saveEditor(); return true;
+    case 'ed-cancel': ui.ed = null; showTab('bloki', { scroll: false }); return true;
+  }
+  return false;
+}
+function startBlock(d, k, btn) {
+  const it = BL.dayItems(state, d).find(x => x.k === k);
+  const b = it && BL.getBlock(state, it.b);
+  if (!b || b.kind !== 'timed' || !b.items || !b.items.length) { openLog(d, k); return; }
+  audioInit();
+  openPlayer(BL.sessionOf(b, k), d, false, btn);
+}
+// Formularz wpisu (podstrona „wpis”): z planu dnia (d, k) albo poza planem (adhoc).
+function openLog(d, k, adhoc) {
+  let bid = null;
+  const e = k ? BL.entryOf(state, d, k) : null;
+  if (e) bid = e.b;
+  else if (k) { const it = BL.dayItems(state, d).find(x => x.k === k); bid = it ? it.b : null; }
+  if (!bid) bid = adhoc ? 'bieg-spokojny' : null;
+  if (!bid) return;
+  const f = { km: '', time: '', min: '', rpe: null, pain: null, grade: '', routes: '', place: null, note: '' };
+  if (e) Object.assign(f, {
+    km: e.km ? BL.fmtKm(e.km) : '', time: e.sec ? BL.fmtDur(e.sec) : '', min: e.dur && !e.sec ? String(Math.round(e.dur / 60)) : '',
+    rpe: e.rpe == null ? null : e.rpe, pain: e.pain == null ? null : e.pain, grade: e.grade || '', routes: e.routes ? String(e.routes) : '', place: e.place || null, note: e.note || ''
+  });
+  ui.lg = { d, k, b: bid, adhoc: !!adhoc, edit: !!e, back: tab === 'wpis' ? (ui.lg && ui.lg.back) || 'dzis' : tab, f, err: '' };
+  stale.wpis = true;
+  showTab('wpis');
+  focusIn(adhoc ? '#lg-date' : '#lg-km, #lg-min');
+}
+function closeLog() {
+  const back = (ui.lg && ui.lg.back) || 'dzis';
+  ui.lg = null;
+  showTab(back, { scroll: false });
+}
+function saveLog() {
+  const lg = ui.lg;
+  if (!lg) return;
+  const b = BL.getBlock(state, lg.b);
+  const t = today();
+  const fail = (code, q) => { lg.err = code; renderPanel('wpis'); focusIn(q); };
+  if (!b) { fail('b', '#lg-b'); return; }
+  if (lg.adhoc && (!DATE.test(lg.d) || lg.d > t)) lg.d = t;
+  const f = lg.f, data = { rpe: f.rpe == null ? undefined : f.rpe, pain: f.pain == null ? undefined : f.pain, note: (f.note || '').trim().slice(0, 200) };
+  if (b.kind === 'run') {
+    const km = f.km ? BL.parseKm(f.km) : null, sec = f.time ? BL.parseTime(f.time) : null;
+    if (f.km && km == null) { fail('km', '#lg-km'); return; }
+    if (f.time && sec == null) { fail('time', '#lg-time'); return; }
+    if (km != null) data.km = km;
+    if (sec != null) { data.sec = sec; data.dur = sec; }
+  } else {
+    const sec = f.min ? BL.parseTime(f.min) : null;
+    if (f.min && sec == null) { fail('min', '#lg-min'); return; }
+    if (sec != null) data.dur = sec;
+    else if (b.kind === 'timed') data.dur = BL.blockSeconds(b);
+    if (b.kind === 'climb') { if (f.grade) data.grade = f.grade; if (/^\d{1,3}$/.test(String(f.routes || '').trim())) data.routes = +f.routes; if (f.place) data.place = f.place; }
+  }
+  const before = PL.progress(state, t);
+  let k = lg.k;
+  if (!k) k = BL.addItem(state, lg.d, b.id, now());
+  BL.logBlock(state, lg.d, k, b, data, now());
+  lg.err = '';
+  const back = lg.back || 'dzis';
+  ui.lg = null;
+  commit();
+  const gain = prog.total - before.total;
+  const nb = newBadges(before, prog);
+  toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + (prog.grade.i > before.grade.i ? ' · nowy poziom ' + prog.grade.name : '') + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
+  showTab(back, { scroll: false });
+}
+function openEditor(draft) {
+  ui.ed = draft; ui.edAdd = false; ui.edErr = '';
+  stale.blok = true;
+  showTab('blok');
+  focusIn('#ed-name');
+}
+function saveEditor() {
+  const ed = ui.ed;
+  if (!ed) return;
+  const fail = (code, q) => { ui.edErr = code; renderPanel('blok'); focusIn(q); };
+  const name = (ed.name || '').trim();
+  if (!name) { fail('name', '#ed-name'); return; }
+  const int = (v, lo, hi) => { const n = parseInt(String(v == null ? '' : v).trim(), 10); return /^\s*\d+\s*$/.test(String(v == null ? '' : v)) && n >= lo && n <= hi ? n : null; };
+  const out = { id: ed.id || null, name: name.slice(0, 60), t: ed.t, kind: ed.kind, note: (ed.note || '').trim().slice(0, 300), min: 0 };
+  if (ed.kind === 'timed') {
+    if (!ed.items.length) { fail('items', '[data-act="ed-add-open"]'); return; }
+    const gap = int(ed.gap, 0, 300);
+    out.gap = gap == null ? 30 : gap;
+    out.items = [];
+    for (const it of ed.items) {
+      const o = { ex: it.ex, kind: it.kind, note: (it.note || '').trim().slice(0, 80) };
+      if (it.kind === 'time') { o.sets = 1; o.dur = int(it.dur, 5, 7200); if (o.dur == null) { fail('num', '.ed-f[data-f="dur"]'); return; } }
+      else {
+        o.sets = int(it.sets, 1, 20); o.rest = int(it.rest, 0, 600);
+        if (it.kind === 'hold') o.hold = int(it.hold, 1, 600); else o.reps = String(it.reps || '').trim().slice(0, 20) || null;
+        if (o.sets == null || o.rest == null || (it.kind === 'hold' ? o.hold == null : !o.reps)) { fail('num', '.ed-f[data-i="' + ed.items.indexOf(it) + '"][data-f="sets"]'); return; }
+      }
+      out.items.push(o);
+    }
+  } else {
+    const m = int(ed.min, 0, 600);
+    out.min = m == null ? 0 : m;
+    if (ed.kind === 'run' && ed.km) { const km = BL.parseKm(ed.km); if (km != null) out.km = km; }
+  }
+  const id = BL.saveBlock(state, out, now());
+  ui.ed = null; ui.edErr = '';
+  commit();
+  toast('Blok zapisany: ' + out.name);
+  showTab('bloki', { scroll: false });
+  focusIn('[data-act="bl-edit"][data-v="' + id + '"]');
+}
+
 // ---------- kopia zapasowa ----------
 const canShareFiles = () => { try { return typeof File === 'function' && !!navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'k.json', { type: 'application/json' })] }); } catch (e) { return false; } };
 const standalone = () => { try { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
@@ -446,6 +649,10 @@ function submitForm(f) {
     if (d === t) Object.assign(ui, { wEdit: false, wToday: '' });
     commit();
     toast('Pomiar zapisany: ' + V.relDay(d, t) + ', ' + V.kg1(kg) + ' kg');
+  } else if (f.dataset.form === 'blog') {
+    saveLog();
+  } else if (f.dataset.form === 'block') {
+    saveEditor();
   } else if (f.dataset.form === 'login') {
     if (ui.lBusy) return;
     doLogin(val('email').trim(), val('password'));
@@ -498,6 +705,15 @@ document.addEventListener('change', e => {
   else if (n.name === 'snd') setMode(n.value);
   else if (n.id === 'w-add-date') { ui.wDate = n.value; paintAddHint(); }
   else if (n.id === 'bk-file') readBackupFile(n.files && n.files[0]);
+  else if (n.id === 'lg-b' && ui.lg) { ui.lg.b = n.value; ui.lg.err = ''; renderPanel('wpis'); }
+  else if (n.id === 'lg-date' && ui.lg) ui.lg.d = n.value;
+  else if (n.id === 'lg-grade' && ui.lg) ui.lg.f.grade = n.value;
+  else if ((n.id === 'ed-t' || n.id === 'ed-kind') && ui.ed) { ui.ed[n.id === 'ed-t' ? 't' : 'kind'] = n.value; if (!ui.ed.items) ui.ed.items = []; renderPanel('blok'); }
+  else if (n.classList && n.classList.contains('ed-f') && n.tagName === 'SELECT' && ui.ed) {
+    const it = ui.ed.items[+n.dataset.i];
+    if (it) { it.kind = n.value; if (n.value === 'hold' && it.hold == null) it.hold = 20; if (n.value === 'reps' && !it.reps) it.reps = '10'; if (n.value === 'time' && it.dur == null) it.dur = 60; if (it.rest == null) it.rest = 30; if (!it.sets) it.sets = 3; }
+    renderPanel('blok');
+  }
 });
 document.addEventListener('input', e => {
   const n = e.target;
@@ -508,6 +724,13 @@ document.addEventListener('input', e => {
   else if (n.id === 'w-add-date') { ui.wDate = n.value; paintAddHint(); }
   else if (n.id === 'w-goal-kg') { ui.wGoal = n.value; clearErr(n, 'goal'); }
   else if (n.id === 'l-email') ui.lEmail = n.value;
+  else if (ui.lg && /^lg-(km|time|min|routes|note|date)$/.test(n.id)) {
+    const fld = n.id.slice(3);
+    if (fld === 'date') ui.lg.d = n.value; else ui.lg.f[fld] = n.value;
+    if (ui.lg.err) { ui.lg.err = ''; n.removeAttribute('aria-invalid'); const hh = $('lg-h'); if (hh) { hh.classList.remove('is-err'); hh.removeAttribute('role'); hh.textContent = ''; } }
+    if (fld === 'km' || fld === 'time') { const pc = $('lg-pace'); const km = BL.parseKm(ui.lg.f.km), sec = BL.parseTime(ui.lg.f.time); if (pc) pc.innerHTML = km && sec ? 'Tempo: <b>' + BL.pace(km, sec) + '</b>' : 'Tempo policzy się samo.'; }
+  } else if (ui.ed && /^ed-(name|note|min|km|gap)$/.test(n.id)) ui.ed[n.id.slice(3)] = n.value;
+  else if (ui.ed && n.classList && n.classList.contains('ed-f') && n.tagName === 'INPUT') { const it = ui.ed.items[+n.dataset.i]; if (it) it[n.dataset.f] = n.value; }
 });
 // Błąd znika przy pierwszym znaku, bez przerysowania panelu (pole nie traci klawiatury ekranowej).
 function clearErr(n, code) {
@@ -537,7 +760,7 @@ document.addEventListener('focusout', () => {
 });
 const tablist = document.querySelector('[role="tablist"]');
 if (tablist) tablist.addEventListener('keydown', e => {
-  const i = TABS.indexOf(SUB[tab] || tab);
+  const i = TABS.indexOf(topOf(tab));
   let j = -1;
   if (e.key === 'ArrowRight') j = (i + 1) % TABS.length;
   else if (e.key === 'ArrowLeft') j = (i + TABS.length - 1) % TABS.length;
@@ -662,6 +885,19 @@ function startSession(sid, btn) {
   audioInit();
   openPlayer(s, t, dp.practice, btn);
 }
+// Ćwiczenie bez animacji: prosta plansza z ikoną rodzaju treningu.
+const PLAIN_VB = '0 0 260 195';
+function plainSvg(ex) {
+  const g = {
+    palce: '<rect x="70" y="70" width="120" height="26" rx="6" class="prop pt"/><path d="M98 96v26M118 96v30M138 96v30M158 96v26" class="ring" stroke-width="7" stroke-linecap="round"/>',
+    sila: '<circle cx="104" cy="98" r="24" class="ring" stroke-width="8"/><circle cx="156" cy="98" r="24" class="ring" stroke-width="8"/><path d="M104 40v34M156 40v34" class="strap" stroke-width="3"/>',
+    rozc: '<path d="M70 140h120" class="strap" stroke-width="4"/><circle cx="130" cy="62" r="12" class="bd"/><path d="M130 76q-6 28-34 52M130 76q10 30 40 52" class="strap" stroke-width="9" stroke-linecap="round" fill="none"/>'
+  }[ex.t] || '<circle cx="130" cy="97" r="34" class="ring" stroke-width="8"/>';
+  return '<rect x="0" y="0" width="260" height="195" class="halo"/>' + g;
+}
+function stageView(ex) { return ex.plain ? PLAIN_VB : A.view(ex).map(v => v.toFixed(1)).join(' '); }
+function stageSvg(ex, t, pfx) { return ex.plain ? plainSvg(ex) : A.render(ex, t, pfx, { full: true }).svg; }
+function stillOf(ex) { return ex.plain ? 0 : A.stillTime(ex); }
 function startSingle(exId, btn) {
   const s = PL.singleSession(exId);
   if (!s) return;
@@ -681,7 +917,7 @@ function openPlayer(session, date, practice, btn) {
   let c = 0;
   P.est.forEach(x => { P.cum.push(c); c += x; });
   P.total = c;
-  pl.style.setProperty('--c', 'var(' + PL.PHASES[state.phase].c + ')');
+  pl.style.setProperty('--c', 'var(' + (session.track ? BL.TRACKS[session.track].c : PL.PHASES[state.phase].c) + ')');
   el.done.hidden = true; el.sheet.hidden = true; el.body.hidden = false;
   pl.hidden = false;
   document.body.classList.add('in-player');
@@ -703,7 +939,7 @@ function closePlayer() {
   try { if (hasSpeech) window.speechSynthesis.cancel(); } catch (e) { /* brak */ }
   renderAll();
   let b = P.returnFocus && document.contains(P.returnFocus) ? P.returnFocus : null;
-  if (!b && !P.single) b = panels.dzis.querySelector('[data-act="start"][data-s="' + (P.session && P.session.id) + '"]');
+  if (!b && !P.single && !P.session.blockKey) b = panels.dzis.querySelector('[data-act="start"][data-s="' + (P.session && P.session.id) + '"]');
   if (b) b.focus({ preventScroll: true });
 }
 
@@ -712,11 +948,11 @@ function upnextText(i) {
   if (!n) return '';
   if (n.k === 'done') return 'Dalej: koniec i ocena bólu';
   if (n.k === 'rest') return 'Dalej: przerwa ' + fmtLen(n.dur);
-  if (n.k === 'prep') return 'Dalej: ' + byId[n.b.ex].name;
+  if (n.k === 'prep') return 'Dalej: ' + exOf(n.b.ex).name;
   if (n.b.kind === 'time') return 'Dalej: start, ' + fmtLen(n.dur);
   return 'Dalej: seria ' + n.set + ' z ' + n.sets + (n.b.kind === 'hold' ? ', ' + n.dur + ' s' : '');
 }
-function drawStage(t) { el.svg.innerHTML = A.render(P.ex, t, 'pl', { full: true }).svg; }
+function drawStage(t) { el.svg.innerHTML = stageSvg(P.ex, t, 'pl'); }
 
 function enterStep(i, carry) {
   P.i = i;
@@ -728,14 +964,14 @@ function enterStep(i, carry) {
   const kind = s.k === 'work' ? s.b.kind : s.k;
   P.kind = kind;
   pl.dataset.kind = kind;
-  const ex = byId[s.b.ex];
+  const ex = exOf(s.b.ex);
   if (ex !== P.ex) {
     P.ex = ex; P.animT = 0;
-    el.svg.setAttribute('viewBox', A.view(ex).map(v => v.toFixed(1)).join(' '));
+    el.svg.setAttribute('viewBox', stageView(ex));
     el.svg.setAttribute('aria-label', 'Animacja: ' + ex.name);
     el.view.textContent = ex.view || ''; el.view.hidden = !ex.view;
   }
-  if (kind === 'rest' || reduce) drawStage(A.stillTime(ex)); else drawStage(P.animT);
+  if (kind === 'rest' || reduce || ex.plain) drawStage(stillOf(ex)); else drawStage(P.animT);
   if (s.bi !== P.bi) {
     P.bi = s.bi;
     el.body.scrollTop = 0;
@@ -745,9 +981,9 @@ function enterStep(i, carry) {
     ex.cues.slice(0, 3).forEach(c => { const li = document.createElement('li'); li.textContent = c; el.cues.appendChild(li); });
     const nb = P.session.blocks[s.bi + 1];
     if (nb) {
-      const ne = byId[nb.ex];
-      el.nxSvg.setAttribute('viewBox', A.view(ne).map(v => v.toFixed(1)).join(' '));
-      el.nxSvg.innerHTML = A.render(ne, A.stillTime(ne), 'nx', { full: true }).svg;
+      const ne = exOf(nb.ex);
+      el.nxSvg.setAttribute('viewBox', stageView(ne));
+      el.nxSvg.innerHTML = stageSvg(ne, stillOf(ne), 'nx');
       el.nxName.textContent = ne.name;
       el.nxDose.textContent = PL.dose(nb) + (nb.note ? ' · ' + nb.note : '');
       el.nx.classList.remove('is-last');
@@ -848,7 +1084,7 @@ function loop(ts) {
     if (rem <= 0) { advance(Math.min(-rem, 15)); return; }
   }
   paint();
-  if (!P.paused && P.kind !== 'rest' && !reduce) {
+  if (!P.paused && P.kind !== 'rest' && !reduce && !P.ex.plain) {
     P.animT += dt;
     drawStage(P.animT);
   }
@@ -884,14 +1120,22 @@ const MSG = {
   warn: 'Żółte: następnym razem ten sam poziom i lżej, aż wróci zielone.',
   bad: 'Czerwone: przerwij ćwiczenie, które bolało, i cofnij się o krok. Ostry ból, przeskakiwanie albo mrowienie: skonsultuj się z fizjoterapeutą.'
 };
-function logEntry() { return state.log[P.date] && state.log[P.date][P.session.id]; }
+function logEntry() {
+  if (P.session.blockKey) return BL.entryOf(state, P.date, P.session.blockKey);
+  return state.log[P.date] && state.log[P.date][P.session.id];
+}
+const entryPts = e => (P.session.blockKey ? BL.entryPoints(e) : PL.entryPoints(P.session.id, e));
 function finish(partial) {
   P.finished = true; P.partial = partial;
   const secs = Math.round((Date.now() - P.startedAt) / 1000);
   beep('done');
   speak(partial ? 'Koniec.' : 'Koniec treningu. Oceń ból.');
   el.live.textContent = partial ? 'Trening przerwany' : 'Sesja zrobiona';
-  if (!P.practice) {
+  if (!P.practice && P.session.blockKey) {
+    const b = BL.getBlock(state, P.session.blockId) || { id: P.session.blockId, t: P.session.track, kind: 'timed', name: P.session.title };
+    BL.logBlock(state, P.date, P.session.blockKey, b, { dur: secs, partial }, now());
+    commit();
+  } else if (!P.practice) {
     const x = { done: true, at: now(), dur: secs, pain: null, label: P.session.label };
     if (partial) x.partial = true;
     (state.log[P.date] = state.log[P.date] || {})[P.session.id] = x;
@@ -910,6 +1154,7 @@ function finish(partial) {
   $('dn-note-wrap').hidden = P.practice;
   el.dnSaved.textContent = P.single ? 'Ćwiczenia z atlasu się nie zapisują i nie dają punktów.'
     : P.practice ? 'Próba: nic się nie zapisuje. Plan zaczyna się ' + PL.longDate(state.start) + '.'
+    : P.session.blockKey ? 'Zapisane w dzienniku.'
     : 'Zapisane. Jutro rano zapytam, jak bark po treningu.';
   paintGain();
   el.dnTitle.focus({ preventScroll: true });
@@ -925,13 +1170,14 @@ function paintGain() {
   const lines = [];
   if (P.redo) lines.push(['Ta sesja była już dziś zaliczona, punkty liczą się raz', '']);
   else if (e) {
-    const base = PL.entryPoints(P.session.id, Object.assign({}, e, { pain: null }));
-    lines.push([e.partial ? 'Przerwana sesja (połowa)' : 'Sesja', '+' + base]);
-    lines.push(e.pain != null ? ['Ocena bólu', '+' + PL.PAIN_PTS] : ['Oceń ból poniżej', '+' + PL.PAIN_PTS + ' do zdobycia']);
-    const other = gain - base - (e.pain != null ? PL.PAIN_PTS : 0);
+    const rate = P.session.blockKey ? BL.RATE_PTS : PL.PAIN_PTS;
+    const base = entryPts(Object.assign({}, e, { pain: null, rpe: null }));
+    lines.push([e.partial ? 'Przerwany trening (połowa)' : P.session.blockKey ? P.session.title : 'Sesja', '+' + base]);
+    lines.push(e.pain != null ? ['Ocena bólu', '+' + rate] : ['Oceń ból poniżej', '+' + rate + ' do zdobycia']);
+    const other = gain - base - (e.pain != null ? rate : 0);
     if (other > 0) {
       const nb = newBadges(before, after).map(b => b.id);
-      const label = nb.indexOf('powrot') >= 0 ? 'Powrót po przerwie' : PL.STREAK.some(x => x[0] === after.streak) ? after.streak + ' dni z rzędu' : 'Bonus';
+      const label = nb.indexOf('tydzien') >= 0 ? 'Pełny tydzień' : nb.indexOf('powrot') >= 0 ? 'Powrót po przerwie' : PL.STREAK.some(x => x[0] === after.streak) ? after.streak + ' dni z rzędu' : 'Bonus';
       lines.push([label, '+' + other]);
     }
   }
@@ -950,7 +1196,7 @@ function setPain(v) {
   let text = MSG[lv];
   if (!P.practice) {
     const e = logEntry();
-    if (e) e.pain = v;
+    if (e) { e.pain = v; if (P.session.blockKey) e.at = now(); }
     if (P.session.ladder) text += ' ' + ladder(v);
     commit();
     paintGain();

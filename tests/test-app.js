@@ -37,7 +37,7 @@ async function open(browser, o) {
     await page.screenshot({ path: OUT + 'v2-02-postep.png', fullPage: true });
     await go(page, 'wiecej');
     await page.screenshot({ path: OUT + 'v2-07-wiecej.png' });
-    check('1 more: four menu items', (await page.locator('#wiecej-in .menu-i').count()) === 4);
+    check('1 more: five menu items', (await page.locator('#wiecej-in .menu-i').count()) === 5);
     await go(page, 'atlas'); await page.clock.runFor(1300);
     await page.screenshot({ path: OUT + 'v2-03-atlas.png' });
     check('1 atlas under Więcej: tab Więcej selected', (await page.getAttribute('#tb-wiecej', 'aria-selected')) === 'true' && (await page.isVisible('#tab-atlas')));
@@ -246,7 +246,7 @@ async function open(browser, o) {
     ok('po odświeżeniu: wiersz z wagą', /66,1/.test(await txt('.wq.is-set')));
     await go(page, 'plan');
     await page.check('#rs-wipe'); await page.click('[data-act="restart-ask"]');
-    ok('potwierdzenie mówi o wadze', /Pomiary wagi zostają/.test(await txt('.confirm')));
+    ok('potwierdzenie mówi o wadze i blokach', /Pomiary wagi i bloki treningowe zostają/.test(await txt('.confirm')));
     await page.click('[data-act="restart-do"]'); await page.clock.runFor(300);
     s1 = await st();
     ok('czyszczenie historii zostawia wagę', s1.epoch > 0 && s1.weight['2026-11-12'].kg === 66.1 && s1.weight['2026-11-10'].del === true);
@@ -281,7 +281,9 @@ async function open(browser, o) {
     await page.click('[data-act="w-range"][data-v="0"]'); await page.clock.runFor(100);
     ok('wszystko: więcej punktów', (await page.locator('#wchart .wc-dot').count()) > n30, (await page.locator('#wchart .wc-dot').count()) + ' punktów | ' + await txt('.w-deltas'));
     const w0 = await page.locator('#wchart svg').getAttribute('width');
-    await page.setViewportSize({ width: 700, height: 844 }); await page.clock.runFor(400);
+    await page.setViewportSize({ width: 700, height: 844 });
+    // zdarzenie resize przychodzi asynchronicznie: najpierw poczekaj na nie, potem przewiń zegar strony za opóźnienie (150 ms)
+    await page.waitForFunction(() => window.innerWidth === 700); await page.waitForTimeout(100); await page.clock.runFor(400);
     const w1 = await page.locator('#wchart svg').getAttribute('width');
     ok('zmiana szerokości przerysowuje wykres', +w1 > +w0, w0 + ' → ' + w1);
     await ctx.close();

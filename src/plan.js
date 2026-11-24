@@ -1,4 +1,4 @@
-/* Plan treningowy v2: sesje, postęp według dni treningowych, restart, punkty i poziomy (wyceny wspinaczkowe). */
+/* Plan rehabilitacji: sesje, postęp według dni treningowych, restart; punkty i poziomy (wyceny wspinaczkowe) za rehabilitację i bloki treningowe. */
 (function (G) {
 'use strict';
 const A = G.ATLAS;
@@ -140,7 +140,8 @@ function defaults(today) {
   const d = today || START;
   return {
     v: 3, epoch: 0, start: d, phase: 1, phaseStart: d, dayOffset: 0, rung: 1, rungGreen: 0,
-    snooze: null, breakAck: null, gates: {}, log: {}, morning: {}, events: [], weight: {}, weightGoal: null, weightGoalAt: 0, updated: 0
+    snooze: null, breakAck: null, gates: {}, log: {}, morning: {}, events: [], weight: {}, weightGoal: null, weightGoalAt: 0,
+    blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, updated: 0
   };
 }
 function hasLog(st, d) { const l = st.log[d]; return !!l && Object.keys(l).some(k => l[k] && l[k].done); }
@@ -218,8 +219,9 @@ function actBack(st, today) {
 // Od nowa: Faza 1 od dnia 1 od wybranej daty. Historia i punkty zostają, chyba że wipe.
 function actRestart(st, date, wipe, now) {
   if (wipe) {
-    // pomiary wagi i cel zostają: to nie jest historia planu
-    const keep = { weight: st.weight || {}, weightGoal: st.weightGoal == null ? null : st.weightGoal, weightGoalAt: st.weightGoalAt || 0 };
+    // pomiary wagi, cel i bloki treningowe (biblioteka, tydzień, dziennik) zostają: to nie jest historia planu rehabilitacji
+    const keep = { weight: st.weight || {}, weightGoal: st.weightGoal == null ? null : st.weightGoal, weightGoalAt: st.weightGoalAt || 0,
+      blocks: st.blocks || {}, week: st.week || null, weekAt: st.weekAt || 0, days: st.days || {}, blog: st.blog || {} };
     const fresh = defaults(date);
     Object.keys(st).forEach(k => { delete st[k]; });
     Object.assign(st, fresh, keep, { epoch: now || Date.now() });
@@ -310,7 +312,14 @@ const BADGES = [
   { id: 'szczebel5', name: 'Pełne podciąganie', desc: 'Piąty szczebel drabinki' },
   { id: 'sesje25', name: '25 sesji', desc: 'Dwadzieścia pięć zrobionych sesji' },
   { id: 'sesje50', name: '50 sesji', desc: 'Pięćdziesiąt zrobionych sesji' },
-  { id: 'sesje100', name: '100 sesji', desc: 'Sto zrobionych sesji' }
+  { id: 'sesje100', name: '100 sesji', desc: 'Sto zrobionych sesji' },
+  { id: 'bieg1', name: 'Pierwszy bieg', desc: 'Pierwszy zapisany bieg' },
+  { id: 'wspin1', name: 'Pierwsza wspinaczka', desc: 'Pierwsze zapisane wspinanie' },
+  { id: 'palce1', name: 'Mocne palce', desc: 'Pierwszy trening palców' },
+  { id: 'tydzien', name: 'Pełny tydzień', desc: '3 biegi i 3 wspinania w jednym tygodniu' },
+  { id: 'km50', name: '50 km', desc: 'Pięćdziesiąt kilometrów biegu' },
+  { id: 'km100', name: '100 km', desc: 'Sto kilometrów biegu' },
+  { id: 'wspin10', name: '10 wspinaczek', desc: 'Dziesięć zapisanych wspinań' }
 ];
 function entryPoints(sid, e) {
   let p = SPTS[sid] || 10;
@@ -325,15 +334,42 @@ function gradeOf(total) {
   const lo = GRADES[i][1], hi = nx ? nx[1] : lo;
   return { i, name: GRADES[i][0], min: lo, next: nx ? nx[0] : null, nextMin: nx ? hi : null, toNext: nx ? hi - total : 0, pct: nx ? (total - lo) / (hi - lo) : 1 };
 }
+// Punkty liczone z dziennika za każdym razem: sesje rehabilitacji i bloki treningowe (G.BLOCKS), serie dni ze wszystkich treningów.
 function progress(st, today) {
-  const days = doneDays(st);
+  const BL = G.BLOCKS;
+  const bent = BL ? BL.entries(st) : [];
+  const bByDay = {};
+  bent.forEach(x => { (bByDay[x.d] = bByDay[x.d] || []).push(x); });
+  const seenDay = {};
+  const days = doneDays(st).concat(Object.keys(bByDay)).filter(d => (seenDay[d] ? false : (seenDay[d] = 1))).sort();
   const earned = {};
   const award = (id, d) => { if (!earned[id]) earned[id] = d; };
-  const byEntry = {}, byDay = {};
+  const byEntry = {}, byDay = {}, weeks = {};
   let total = 0, sessions = 0, seconds = 0, painN = 0, run = 0, best = 0, prev = null;
+  let blocks = 0, runs = 0, climbs = 0, fingers = 0, km = 0, fullWeeks = 0;
   const addDay = (d, p) => { byDay[d] = (byDay[d] || 0) + p; total += p; };
   days.forEach(d => {
-    const l = st.log[d];
+    const l = st.log[d] || {};
+    (bByDay[d] || []).forEach(x => {
+      const p = BL.entryPoints(x.e);
+      byEntry[d + '|b:' + x.k] = p;
+      addDay(d, p);
+      blocks += 1; seconds += x.e.dur || 0;
+      if (x.e.t === 'bieg') {
+        runs += 1;
+        const before = km;
+        km += x.e.km || 0;
+        if (runs === 1) award('bieg1', d);
+        if (before < 50 && km >= 50) award('km50', d);
+        if (before < 100 && km >= 100) award('km100', d);
+      }
+      if (x.e.t === 'wspin') { climbs += 1; if (climbs === 1) award('wspin1', d); if (climbs === 10) award('wspin10', d); }
+      if (x.e.t === 'palce') { fingers += 1; if (fingers === 1) award('palce1', d); }
+      const w = BL.weekStart(d), wk = weeks[w] = weeks[w] || { r: 0, c: 0, got: false };
+      if (x.e.t === 'bieg') wk.r++;
+      if (x.e.t === 'wspin') wk.c++;
+      if (!wk.got && wk.r >= BL.WEEK_RUNS && wk.c >= BL.WEEK_CLIMBS) { wk.got = true; fullWeeks += 1; addDay(d, BL.WEEK_PTS); byEntry[d + '|week'] = BL.WEEK_PTS; award('tydzien', d); }
+    });
     Object.keys(l).sort().forEach(sid => {
       const e = l[sid];
       if (!e || !e.done) return;
@@ -369,6 +405,7 @@ function progress(st, today) {
   const alive = last && today && diff(last, today) <= 1;
   return {
     total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best,
+    blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks,
     badges: BADGES.map(b => Object.assign({}, b, { d: earned[b.id] || null })), byEntry, byDay
   };
 }

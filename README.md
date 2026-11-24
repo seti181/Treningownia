@@ -1,6 +1,6 @@
 # Treningownia
 
-My training app, in Polish and made for the phone. It installs from the browser and works without a network. Right now it covers shoulder rehab (timed sessions, points, 33 animated exercises), a body-weight log with a trend chart, a week view and a journal. Running and climbing come next (`docs/roadmap.md`).
+My training app, in Polish and made for the phone. It installs from the browser and works without a network. It plans the week from training blocks (running, climbing, fingers, strength, stretching) that you can move, skip, edit and log, with points, badges and a weekly goal. It also runs a shoulder rehab plan (timed sessions, 33 animated exercises) and a body-weight log with a trend chart. Next steps are in `docs/roadmap.md`.
 
 It's one HTML file plus a manifest, a service worker and icons, with no dependencies. The code lives in `src/`, and the build puts it together.
 
@@ -51,7 +51,7 @@ Step by step in `docs/sync.md`: create a Firebase project, switch on e-mail sign
 src/        app code: animation engine and exercises, plan logic, state, views, sync, controller, service worker, icons, styles
 tools/      build.js, serve.js (preview), sheet.js (animation frames), icons.js
 tests/      automated tests (Node and Playwright) and the screenshot script
-docs/       architecture, sync, rehab, weight, roadmap
+docs/       architecture, blocks, sync, rehab, weight, roadmap
 dist/       build output (not in git)
 .github/    the test-and-deploy workflow
 .vscode/    editor settings, recommended extensions, build/test tasks

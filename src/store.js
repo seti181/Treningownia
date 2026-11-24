@@ -5,8 +5,92 @@ const PL = G.PLAN;
 const KEY = 'treningownia-v1';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SID = /^[a-z]{2,12}$/;
+const BID = /^[a-z0-9][a-z0-9-]{1,39}$/;
+const KID = /^[a-z0-9][a-z0-9:_-]{0,59}$/i;
 const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
 const clone = o => JSON.parse(JSON.stringify(o));
+const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
+const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const at = o => +o.at || 0;
+// ---------- bloki treningowe ----------
+function cleanItem(x) {
+  if (!isObj(x) || typeof x.ex !== 'string' || !BID.test(x.ex) || ['hold', 'reps', 'time'].indexOf(x.kind) < 0) return null;
+  const o = { ex: x.ex, kind: x.kind, sets: num(x.sets, 1, 20) ? Math.round(x.sets) : 1, note: str(x.note, 80) };
+  if (x.kind === 'hold') o.hold = num(x.hold, 1, 600) ? Math.round(x.hold) : 10;
+  if (x.kind === 'reps') o.reps = str(x.reps, 20) || '10';
+  if (x.kind === 'time') { o.dur = num(x.dur, 5, 7200) ? Math.round(x.dur) : 60; o.sets = 1; }
+  if (x.kind !== 'time') o.rest = num(x.rest, 0, 600) ? Math.round(x.rest) : 30;
+  if (typeof x.side === 'string' && x.side) o.side = str(x.side, 40);
+  return o;
+}
+function cleanBlock(id, b) {
+  if (!isObj(b)) return null;
+  if (b.del) return { del: true, at: at(b) };
+  const BL = G.BLOCKS;
+  if (!BL || BL.KINDS.indexOf(b.kind) < 0 || !BL.TRACKS[b.t]) return null;
+  const o = { id, name: str(b.name, 60) || 'Blok', kind: b.kind, t: b.t, min: num(b.min, 0, 600) ? Math.round(b.min) : 0, note: str(b.note, 300), at: at(b) };
+  if (num(b.km, 0.1, 200)) o.km = Math.round(b.km * 100) / 100;
+  if (b.kind === 'timed') {
+    o.gap = num(b.gap, 0, 300) ? Math.round(b.gap) : 30;
+    o.items = (Array.isArray(b.items) ? b.items : []).slice(0, 30).map(cleanItem).filter(Boolean);
+  }
+  return o;
+}
+function cleanEntry(e) {
+  if (!isObj(e)) return null;
+  if (e.del) return { del: true, at: at(e) };
+  const BL = G.BLOCKS;
+  if (!e.done || typeof e.b !== 'string' || !BID.test(e.b) || !BL || !BL.TRACKS[e.t]) return null;
+  const o = { b: e.b, t: e.t, kind: BL.KINDS.indexOf(e.kind) >= 0 ? e.kind : 'simple', name: str(e.name, 60), done: true, at: at(e) };
+  if (num(e.dur, 0, 86400)) o.dur = Math.round(e.dur);
+  if (num(e.km, 0.01, 300)) o.km = Math.round(e.km * 100) / 100;
+  if (num(e.sec, 1, 86400)) o.sec = Math.round(e.sec);
+  if (num(e.rpe, 1, 10)) o.rpe = Math.round(e.rpe);
+  if (num(e.pain, 0, 10)) o.pain = Math.round(e.pain);
+  if (num(e.routes, 0, 200)) o.routes = Math.round(e.routes);
+  if (BL.GRADE_LIST.indexOf(e.grade) >= 0) o.grade = e.grade;
+  if (BL.PLACES.indexOf(e.place) >= 0) o.place = e.place;
+  if (str(e.note, 200)) o.note = str(e.note, 200);
+  if (e.partial) o.partial = true;
+  return o;
+}
+function sanitizeBlocks(o, d) {
+  if (isObj(o.blocks)) Object.keys(o.blocks).slice(0, 300).forEach(id => { if (BID.test(id)) { const b = cleanBlock(id, o.blocks[id]); if (b) d.blocks[id] = b; } });
+  if (isObj(o.week)) {
+    d.week = {};
+    for (let i = 0; i < 7; i++) d.week[i] = (Array.isArray(o.week[i]) ? o.week[i] : []).filter(x => typeof x === 'string' && BID.test(x)).slice(0, 8);
+  }
+  d.weekAt = +o.weekAt || 0;
+  if (isObj(o.days)) Object.keys(o.days).sort().slice(-800).forEach(day => {
+    const x = o.days[day];
+    if (!DATE.test(day) || !isObj(x)) return;
+    const items = (Array.isArray(x.items) ? x.items : []).filter(i => isObj(i) && typeof i.k === 'string' && KID.test(i.k) && typeof i.b === 'string' && BID.test(i.b)).slice(0, 12)
+      .map(i => (i.skip ? { k: i.k, b: i.b, skip: true } : { k: i.k, b: i.b }));
+    d.days[day] = { items, at: at(x) };
+  });
+  if (isObj(o.blog)) Object.keys(o.blog).sort().slice(-4000).forEach(day => {
+    if (!DATE.test(day) || !isObj(o.blog[day])) return;
+    Object.keys(o.blog[day]).slice(0, 20).forEach(k => {
+      if (!KID.test(k)) return;
+      const e = cleanEntry(o.blog[day][k]);
+      if (e) (d.blog[day] = d.blog[day] || {})[k] = e;
+    });
+  });
+}
+// Bloki, tydzień, dni i dziennik bloków łączą się zawsze (także po wyczyszczeniu historii rehabilitacji):
+// dla każdego bloku, dnia i wpisu wygrywa późniejszy zapis, znaczniki usunięcia też.
+function mergeBlocks(out, other) {
+  ['blocks', 'days'].forEach(key => Object.keys(other[key] || {}).forEach(id => {
+    const x = other[key][id], y = out[key][id];
+    if (!y || at(x) > at(y)) out[key][id] = clone(x);
+  }));
+  Object.keys(other.blog || {}).forEach(day => Object.keys(other.blog[day]).forEach(k => {
+    const x = other.blog[day][k], y = out.blog[day] && out.blog[day][k];
+    if (!y || at(x) > at(y)) (out.blog[day] = out.blog[day] || {})[k] = clone(x);
+  }));
+  if ((other.weekAt || 0) > (out.weekAt || 0)) { out.week = other.week ? clone(other.week) : null; out.weekAt = other.weekAt; }
+  return out;
+}
 
 // JSON z kluczami w kolejności alfabetycznej: dwie kopie tego samego stanu dają ten sam tekst.
 function canon(v) {
@@ -58,6 +142,7 @@ function sanitize(o, fallbackDay) {
   });
   if (typeof o.weightGoal === 'number' && o.weightGoal >= 25 && o.weightGoal <= 300) d.weightGoal = Math.round(o.weightGoal * 10) / 10;
   d.weightGoalAt = +o.weightGoalAt || 0;
+  sanitizeBlocks(o, d);
   d.updated = +o.updated || 0;
   return d;
 }
@@ -75,7 +160,7 @@ function mergeWeight(out, other) {
 function merge(a, b) {
   if ((a.epoch || 0) !== (b.epoch || 0)) {
     const win = (a.epoch || 0) > (b.epoch || 0) ? a : b;
-    return mergeWeight(clone(win), win === a ? b : a);
+    return mergeBlocks(mergeWeight(clone(win), win === a ? b : a), win === a ? b : a);
   }
   const base = (b.updated || 0) > (a.updated || 0) ? b : a;
   const other = base === b ? a : b;
@@ -88,7 +173,7 @@ function merge(a, b) {
   const seen = {};
   out.events = out.events.concat(other.events).filter(ev => { const k = canon(ev); if (seen[k]) return false; seen[k] = 1; return true; })
     .sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0)).slice(-300);
-  return mergeWeight(out, other);
+  return mergeBlocks(mergeWeight(out, other), other);
 }
 
 // ---------- kopia zapasowa (plik JSON) ----------
@@ -108,6 +193,7 @@ function counts(st) {
   let sessions = 0;
   Object.keys(st.log).forEach(d => Object.keys(st.log[d]).forEach(s => { if (st.log[d][s].done) sessions++; }));
   const weights = Object.keys(st.weight).filter(d => !st.weight[d].del).length;
+  Object.keys(st.blog || {}).forEach(d => Object.keys(st.blog[d]).forEach(k => { if (st.blog[d][k].done) sessions++; }));
   return { sessions, weights, days: PL.doneDays(st).length };
 }
 

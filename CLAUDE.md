@@ -18,7 +18,7 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 ```sh
 npm run build       # src/ → dist/web: index.html (the whole app), manifest.webmanifest, sw.js, icons/
 npm test            # build, then every test; exits 1 on any FAIL line
-npm run test:plan   # plan and state logic only, no browser, under a second
+npm run test:plan   # plan, state and blocks logic only, no browser, under a second
 npm run preview     # serve dist/web on http://localhost:8080 (a phone on the same Wi-Fi can open it)
 npm run shots       # screenshots of the weight screens → shots/
 npm run sheet -- kolka-z-nogami,australijskie   # animation frames → shots/sheetN.svg
@@ -34,8 +34,10 @@ src/          app code, inlined into one HTML file by the build
   core.js     animation engine + EX, the 33 rehab exercises          → window.ATLAS
   ui.js       atlas card animation loop
   plan.js     rehab plan, training days, points, weight helpers      → window.PLAN
+  blocks.js   training blocks: library, week pattern, day changes, block log, points → window.BLOCKS
   store.js    storage key, sanitize, merge, canon, backup file       → window.STORE
   views.js    HTML builders for every panel, weight chart            → window.VIEWS
+  blocks-views.js  block screens (Dziś cards, Tydzień planner, log form, library, editor), added to VIEWS
   config.js   Firebase project (apiKey, projectId); empty = no sync  → window.CONFIG
   sync.js     Firebase Auth + Firestore over REST, no SDK            → window.CLOUD
   trainer.js  controller: navigation, events, player, forms, storage, sync, backup (IIFE, no globals)
@@ -44,17 +46,18 @@ src/          app code, inlined into one HTML file by the build
   page.css, player.css
 tools/        build.js, serve.js (preview), sheet.js (animation frames), icons.js
 tests/        check.js (shared helpers), test-*.js, shots-weight.js
-docs/         architecture.md, sync.md, rehab.md, weight.md, roadmap.md
+docs/         architecture.md, blocks.md, sync.md, rehab.md, weight.md, roadmap.md
 dist/         build output, not in git
 .github/workflows/pages.yml   on push to main: run the tests, then build and publish dist/web to GitHub Pages
 ```
 
 ## How it works
 
-- One self-contained HTML file, plus a manifest, a service worker and icons so it installs on the phone and works offline. The build inlines the scripts in order core → ui → plan → store → views → config → sync → trainer. Each is plain browser JS; all but ui and trainer also `module.exports` their API, so Node can run them (tests, prerender).
+- One self-contained HTML file, plus a manifest, a service worker and icons so it installs on the phone and works offline. The build inlines the scripts in order core → ui → plan → blocks → store → views → blocks-views → config → sync → trainer. Each is plain browser JS; all but ui and trainer also `module.exports` their API, so Node can run them (tests, prerender).
 - views.js returns HTML strings; trainer.js rebuilds a panel with `innerHTML`, then restores focus and caret. Form drafts live in the `ui` object, so a re-render never loses typing, and a panel never re-renders on its own while the owner types in it.
 - State is one JSON object (shape in docs/architecture.md), always saved in localStorage (`treningownia-v1`). When the owner is signed in, it also syncs with one Firestore document through `sync.js`: read, `merge()`, write only if different, with a version condition (docs/sync.md). Points, grades and averages are computed from the log each time, never stored.
-- Tabs: Dziś (today), Tydzień (next 7 days), Dziennik (journal), Postęp (progress), Więcej (more). Under Więcej: Waga, Atlas, Rehabilitacja barku, Ustawienia (account, backup, sound). Five tabs fill a 320px screen, so new things go under Więcej or into an existing tab.
+- Training is built from blocks (docs/blocks.md): a default week ("Mój tydzień") fills each day, any day can be changed, every completed block is logged and earns points. The shoulder rehab runs alongside, unchanged.
+- Tabs: Dziś (today), Tydzień (week planner), Dziennik (journal), Postęp (progress), Więcej (more). Under Więcej: Bloki treningowe, Waga, Atlas, Rehabilitacja barku, Ustawienia (account, backup, sound). Pages without a tab: Blok (editor) and Wpis (log form). Five tabs fill a 320px screen, so new things go under Więcej or into an existing tab.
 
 ## Rules
 
@@ -68,6 +71,7 @@ dist/         build output, not in git
 - No native form submit: buttons are `type="button"` and Enter is handled in JS.
 - Colours come from the tokens in page.css. Traffic-light colours (`--ok`, `--warn`, `--bad`) mean good or bad, so never use them for weight going up or down.
 - Not medical advice. Don't change rehab doses, gates or pain rules unless the owner asks; the rehab plan document is the source of truth. New training plans start conservative and the owner confirms them.
+- While rehab is on: no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026).
 - Before you finish: `npm test` passes, and after UI changes you have looked at the screenshots in shots/ (390px and 320px, light and dark).
 - Update the matching docs/ file, and this file if a command or rule changed, in the same change.
 
@@ -79,7 +83,7 @@ dist/         build output, not in git
 4. Views: a builder in views.js or `src/<module>-views.js`, a place in the navigation (under Więcej, or inside Tydzień, Dziennik and Postęp), and a line on Dziś when there is something to do today.
 5. Timed work reuses the player: a session is `{id, label, title, gap, blocks[]}` with `hold`, `reps` and `time` blocks (docs/rehab.md).
 6. Points: decide with the owner whether the module earns any.
-7. Tests: logic in Node like tests/test-plan.js, UI in Playwright like tests/test-app.js (`go(page, name)` opens any page), both using `check()` from tests/check.js.
+7. Tests: logic in Node like tests/test-blocks-logic.js, UI in Playwright like tests/test-blocks.js (`go(page, name)` opens any page), both using `check()` from tests/check.js.
 8. Docs: write `docs/<module>.md` and add it to the list below.
 
 ## Deploy
@@ -101,6 +105,7 @@ dist/         build output, not in git
 ## Docs
 
 - docs/architecture.md: build, runtime modules, navigation, state shape, storage, backup, offline, design system, tests.
+- docs/blocks.md: training blocks: tracks, points, kinds, the starter library and week, state, screens.
 - docs/sync.md: account and cloud sync (Firebase), the sync loop, the one-time Firebase setup.
 - docs/rehab.md: rehab plan logic, phases and doses, the player, the animation engine.
 - docs/weight.md: weight tracking and its chart.

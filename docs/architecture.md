@@ -2,7 +2,7 @@
 
 ## Build (`tools/build.js`)
 
-- Inlines the scripts in this order, each in its own `<script>`: `core.js`, `ui.js`, `plan.js`, `store.js`, `views.js`, `config.js`, `sync.js`, `trainer.js`; plus `page.css` and `player.css`. It refuses to build if any source (or `sw.js`) contains `</script`.
+- Inlines the scripts in this order, each in its own `<script>`: `core.js`, `ui.js`, `plan.js`, `blocks.js`, `store.js`, `views.js`, `blocks-views.js`, `config.js`, `sync.js`, `trainer.js`; plus `page.css` and `player.css`. It refuses to build if any source (or `sw.js`) contains `</script`.
 - Prerenders the first frame of every atlas card and the Dziś panel for `BUILD_DAY`. The date is fixed so builds are reproducible; the app re-renders for the real date as soon as it loads.
 - Writes `dist/web/` (GitHub Pages publishes this folder):
   - `index.html`: the whole app in one file (`lang="pl"`, charset, viewport, `theme-color` for light and dark, manifest and icon links). Google Fonts load without blocking (`media="print" onload=…`), so a hanging network doesn't delay the page.
@@ -10,7 +10,7 @@
   - `sw.js`: `src/sw.js` with the version (a hash of the page, manifest and icons) and the file list filled in.
   - `icons/`: copied from `src/icons/`. The PNGs are drawn once by `npm run icons` (tools/icons.js, Playwright) and kept in git.
 - Also in build.js: the atlas phase sections (`PH`), the tab and player icons (`ICO`), the player markup, and the rehab plan document URL in the footer.
-- If you only have a built `index.html`: its eight inline `<script>` blocks are the eight source files, in order.
+- If you only have a built `index.html`: its ten inline `<script>` blocks are the ten source files, in order.
 
 ## Runtime modules
 
@@ -19,19 +19,21 @@
 | `core.js` | `window.ATLAS = { EX, render, view, evalAt, stillTime, prep }` | animation engine and the exercise list (docs/rehab.md) |
 | `ui.js` | nothing | atlas cards: about 30 fps, only visible cards, tap a card to pause it, global pause and ½× speed; skips drawing while `body.in-player` is set |
 | `plan.js` | `window.PLAN` | date helpers, rehab sessions and calendar, plan actions, points engine, weight helpers, `defaults()` |
+| `blocks.js` | `window.BLOCKS` | training blocks: tracks, catalogue, built-in blocks and week, day plan and changes, block log, points per entry, time and pace (docs/blocks.md) |
 | `store.js` | `window.STORE` | the storage key, `sanitize`, `merge`, `canon`, backup file (`backup`, `readBackup`) |
-| `views.js` | `window.VIEWS` | pure HTML builders: header chip, Dziś, Tydzień, Dziennik, Postęp, Więcej, Waga (with the chart SVG), Rehabilitacja, Ustawienia |
+| `views.js` | `window.VIEWS` | pure HTML builders: header chip, Dziś, Dziennik, Postęp, Więcej, Waga (with the chart SVG), Rehabilitacja, Ustawienia |
+| `blocks-views.js` | adds to `window.VIEWS` | block cards on Dziś, the Tydzień planner, the log form, the library with Mój tydzień, the block editor |
 | `config.js` | `window.CONFIG` | deployment settings: the Firebase project (`apiKey`, `projectId`); empty = no sync |
 | `sync.js` | `window.CLOUD = { create }` | Firebase Auth and Firestore over REST (docs/sync.md) |
 | `trainer.js` | nothing (IIFE) | navigation, event handling, the session player, forms, sounds and voice, wake lock, storage, sync, backup, service worker registration |
 | `sw.js` | (service worker) | offline cache (below) |
 
-core, plan, store, views, config and sync end with `if (typeof module !== 'undefined' && module.exports) module.exports = API;`, so tests and the build can `require()` them.
+core, plan, blocks, store, views, blocks-views, config and sync end with `if (typeof module !== 'undefined' && module.exports) module.exports = API;`, so tests and the build can `require()` them.
 
 ## Navigation
 
 - Tab bar (`TABS`): Dziś, Tydzień, Dziennik, Postęp, Więcej. Five tabs fill a 320px screen; anything new goes under Więcej or into an existing tab.
-- Pages under Więcej (`SUB`): `waga`, `atlas`, `plan` (Rehabilitacja barku), `ustawienia`. While one is open, the Więcej tab stays selected, and the page has a "← Więcej" button.
+- Pages under Więcej (`SUB`): `bloki`, `blok` (editor), `waga`, `atlas`, `plan` (Rehabilitacja barku), `ustawienia`. While one is open, the Więcej tab stays selected, and the page has a back button. `wpis` (the block log form) belongs to the page it was opened from (`topOf()`), and its back button returns there.
 - Every page is a `<section id="tab-<name>" role="tabpanel">`; rendered ones have a `<div id="<name>-in">`. The Atlas is static markup from the build.
 - A `#hash` opens any page (`#waga`, `#ustawienia`); `#faza-2` or `#rozgrzewka` opens the Atlas at that section. Arrow keys move along the tab bar (from a sub page they start at Więcej). Any element with `data-act="tab" data-v="<page>"` opens a page.
 
@@ -52,12 +54,14 @@ core, plan, store, views, config and sync end with `if (typeof module !== 'undef
   log: { 'YYYY-MM-DD': { <sessionId>: { done: true, at: ms, dur: s, pain: 0..10 | null, label, partial?, note? } } },
   events: [ { k: 'phase', p, d, via: 'gate' | 'manual' | 'back' } | { k: 'rung', r, d, s } | { k: 'restart', d } ],
   weight: { 'YYYY-MM-DD': { kg, at } | { del: true, at } }, weightGoal: null | kg, weightGoalAt: ms | 0,
+  blocks: { id: block | { del, at } }, week: null | { 0..6: [blockId] }, weekAt: ms | 0,
+  days: { 'YYYY-MM-DD': { items: [ { k, b, skip? } ], at } }, blog: { 'YYYY-MM-DD': { k: entry | { del, at } } },
   updated: ms }
 ```
 
 - `defaults(day)` in plan.js creates it. `STORE.sanitize(o, fallbackDay)` validates everything read from storage, the cloud or a backup file, and builds a fresh object with the known keys only.
 - Nothing derived is stored: `progress(state, today)` computes points, grade, streak and badges; `weightStats()` and `weightWindow()` compute the averages.
-- Stage 1 (docs/roadmap.md) adds new top-level keys (blocks, phases, the week, one log). Each new key goes into `defaults()`, `sanitize()` and `merge()` with a test in tests/test-store.js.
+- The block keys are described in docs/blocks.md. Each new key goes into `defaults()`, `sanitize()` and `merge()` with a test (tests/test-store.js or tests/test-blocks-logic.js).
 
 ## Storage, sync and backup
 
@@ -69,6 +73,7 @@ core, plan, store, views, config and sync end with `if (typeof module !== 'undef
   - If `epoch` differs (history was wiped somewhere), the newer epoch wins outright for the plan.
   - Otherwise the newer `updated` wins, and logs, morning answers and events are combined from both sides (events de-duplicated, sorted, last 300 kept).
   - Weight is merged in both cases: for each day the later `at` wins, deletion markers included, and the goal follows the later `weightGoalAt`.
+  - Blocks, days and the block log are merged in both cases too (per item, later `at` wins); the week pattern follows the later `weekAt`.
 - Compare states with `canon()` (sorted-key JSON), never with plain `JSON.stringify`.
 - Backup: Więcej → Ustawienia → Kopia zapasowa. "Zapisz kopię" downloads `treningownia-kopia-YYYY-MM-DD.json` = `{ app: 'treningownia', format: 1, exported, state }`; "Wyślij kopię" uses the share sheet where the phone supports sharing files. "Wczytaj kopię" reads a file, shows a summary and, after a confirmation, merges it with `merge()`; it never deletes anything.
 - Size: everything lives in one document (Firestore allows 1 MiB). Years of daily entries stay far below that; keep bulky data (GPS tracks, photos) out of the state.
@@ -103,10 +108,12 @@ core, plan, store, views, config and sync end with `if (typeof module !== 'undef
 | `tests/check.js` | `check(name, cond, extra)` prints ok/FAIL and sets exit code 1; `finish(errors)`; `built()`; `ignorable()` for blocked-font errors; `KEY`; `go(page, name)` opens a tab or a page under Więcej |
 | `tests/test-plan.js` | Node only: weekly pattern and session lengths per phase, yellow and red mornings, the Today panel HTML |
 | `tests/test-store.js` | Node only: sanitize, merge between two devices, deletion markers, history wipe, the backup file round trip |
+| `tests/test-blocks-logic.js` | Node only: default week, no pulling in built-ins, move/skip/add/remove, pattern changes, logging, points and the full-week bonus, time and km parsing, editing/copying/resetting blocks, sanitize and merge of the block keys |
 | `tests/test-sync.js` | a fake Firebase (Auth and Firestore REST) and two devices: login errors, first write, reading on a second device, a write conflict, an expired token, offline and back, no write loops, logout, a revoked session, backup to file and import on a third device |
 | `tests/test-offline.js` | the page opened as a file with a hanging network: renders, a full session, saves, reopens |
 | `tests/test-pwa.js` | served on localhost: manifest and icons, the service worker takes control, then with the server stopped and the browser offline the app still loads and saves |
 | `tests/test-app.js` | every tab and page, the back button, arrow keys, break alert, restart, manual stage, a full session with points, the journal, a single atlas exercise, dark desktop, 320px, the weight flows (scenarios 7 and 8) |
+| `tests/test-blocks.js` | a Tuesday on the phone: block cards, a timed block in the player, logging a climb and yesterday's run (pace, errors, Enter), moving, adding, skipping, other weeks, Mój tydzień, editing and creating blocks, the journal entry outside the plan, Postęp; 320px and dark |
 | `tests/shots-weight.js` | screenshots only, for looking at |
 
 - Seed a state with `page.addInitScript` writing `localStorage[KEY]`. Control time with `page.clock.install({ time })` and `page.clock.runFor(ms)`.
