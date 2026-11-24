@@ -25,6 +25,7 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Body weight: daily entry, 7-day average, chart, goal, pace per week, goal date, "losing too fast" note | done | weight.md |
 | Training blocks: library, default week (easy runs only until the 5 km test), planner (move, skip, add, other weeks), log form, block editor | done | blocks.md |
 | Animations for every exercise, including running and walking, in the player and the Atlas | done | blocks.md |
+| Atlas: search (no Polish letters needed, word stems) and 10 category chips (5 rehab phases; Palce, Siła, Core, Rozciąganie, Bieganie) | done | architecture.md, blocks.md |
 | Run player: timed segments with voice, 5 km test timed to "Meta", "Dopisz dystans"; training paces from the test | done | blocks.md |
 | Training cycle (3 weeks build + 1 recovery) and progression proposals the owner accepts or declines | done | blocks.md |
 | Points, badges, day streaks with one rest day a week, weekly challenges, personal records | done | blocks.md |
@@ -76,4 +77,5 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-24: item 2 built: training cycle (3 + 1 by default) and progression proposals (hangboard time then 15 mm, reps, run minutes, the 5 km test), never silent, paused by shoulder pain or a red morning.
 - 2026-11-24: item 3 built: charts in HTML/CSS (one colour, readout row, table view) for running and climbing.
 - 2026-11-24: item 4 built: level-up celebration, one rest day a week keeps the streak, weight pace and goal date, a note when losing more than 1% a week for two weeks.
+- 2026-11-24: Atlas search and categories, at the owner's request: a search box in the sticky bar (name, dose, tips, category; ignores case and Polish letters, matches word stems), the block exercises split into five categories, the animation buttons moved under the intro.
 - 2026-11-24: item 5, partly: the "Koniec rehabilitacji" switch and the locked pull-up block; sync, the Android app and Strava wait on the owner.
