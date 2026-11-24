@@ -396,6 +396,13 @@ document.addEventListener('click', e => {
     }
     case 'w-goal-clear': PL.setGoal(state, null, now()); Object.assign(ui, { wGoal: null, wErr: '' }); commit(); toast('Cel usunięty'); focusIn('#w-goal-kg'); break;
     case 'w-submit': { const f = b.closest('form[data-form]'); if (f) submitForm(f); break; }
+    case 'cc': {
+      // wykres: odczyt wskazanej kolumny (bez przerysowania panelu)
+      const fig = b.closest('.cc'), rd = fig && fig.querySelector('.cc-read');
+      if (rd) rd.innerHTML = '<span>' + V.esc(b.dataset.l) + '</span><b>' + V.esc(b.dataset.t) + '</b>';
+      if (fig) fig.querySelectorAll('.cc-col').forEach(c => c.classList.toggle('is-cur', c === b));
+      break;
+    }
     case 'j-all': ui.jAll = !ui.jAll; renderPanel('dziennik'); focusIn('[data-act="j-all"]'); break;
     case 'login': { const f = b.closest('form[data-form]'); if (f) submitForm(f); break; }
     case 'logout': cloud.signOut(); setSync('out'); stale.wiecej = true; renderPanel('ustawienia'); toast('Wylogowano. Dane zostają na tym urządzeniu.'); focusIn('#l-email'); break;

@@ -263,6 +263,7 @@ function progressHTML(st, today, prog) {
     h += `<span class="rs rr${i === lr.i ? ' cur' : ''}${i < lr.i ? ' done' : ''}"><i style="width:${Math.round(f * 100)}%"></i><em>${esc(PL.RUN_LEVELS[i][1])}</em></span>`;
   }
   h += '</div>';
+  if (API.chartsRunHTML) h += `<h2 class="sub-h">Bieganie w liczbach</h2>${API.chartsRunHTML(st, today)}<h2 class="sub-h">Wspinanie w liczbach</h2>${API.chartsClimbHTML(st, today)}`;
   // odznaki
   const got = prog.badges.filter(b => b.d).length;
   h += `<h2 class="sub-h">Odznaki <span class="sub-count">${got} z ${prog.badges.length}</span></h2><ul class="badges">`;

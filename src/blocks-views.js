@@ -69,6 +69,74 @@ function recordsHTML(st, today) {
   }).join('') + '</ul><p class="w-note">Pobity rekord: +' + BL.REC_PTS + ' pkt. Pierwszy wynik ustawia poprzeczkę.</p>';
 }
 
+// ---------- wykresy ----------
+// Kolumny w HTML/CSS: jeden kolor (rodzaj treningu), słupki od zera, odczyt nad wykresem po dotknięciu słupka
+// (domyślnie ostatni), podpisy osi co kilka kolumn, tabela z wszystkimi wartościami pod wykresem.
+// o: { id, title, color, kind: 'bar' | 'dot', pts: [{ short, label, val, text }], ref: { val, label }, lo, hi, up, axis: v => tekst }
+function colChart(o) {
+  const vals = o.pts.map(p => p.val).filter(v => v != null);
+  let lo = o.kind === 'bar' ? 0 : (o.lo != null ? o.lo : Math.min.apply(null, vals.concat(o.ref ? [o.ref.val] : [])));
+  let hi = o.hi != null ? o.hi : Math.max.apply(null, vals.concat(o.ref ? [o.ref.val] : []).concat([o.kind === 'bar' ? 1 : lo + 1]));
+  if (o.kind !== 'bar') { const pad = (hi - lo) * 0.12 || 60; lo -= pad; hi += pad; }
+  const pos = v => { const f = (v - lo) / ((hi - lo) || 1); return Math.max(0, Math.min(1, o.up ? 1 - f : f)) * 100; };
+  const last = o.pts.map(p => p.val != null).lastIndexOf(true);
+  const cur = last >= 0 ? o.pts[last] : null;
+  const every = o.pts.length > 8 ? 3 : 1;
+  let h = `<figure class="cc" style="--cc:var(${o.color})" id="${o.id}"><figcaption class="cc-h">${esc(o.title)}</figcaption>` +
+    `<p class="cc-read" aria-live="polite">${cur ? `<span>${esc(cur.label)}</span><b>${esc(cur.text)}</b>` : '<span>Brak danych</span>'}</p>` +
+    `<div class="cc-plot cc-k-${o.kind}" role="group" aria-label="${esc(o.title)}">`;
+  if (o.ref) h += `<i class="cc-ref" style="bottom:${pos(o.ref.val).toFixed(1)}%"><em>${esc(o.ref.label)}</em></i>`;
+  h += `<span class="cc-ax cc-ax-hi">${esc(o.axis(o.up ? lo : hi))}</span><span class="cc-ax cc-ax-lo">${esc(o.axis(o.up ? hi : lo))}</span>`;
+  o.pts.forEach((p, i) => {
+    const has = p.val != null;
+    const mark = o.kind === 'bar' ? `<i class="cc-bar" style="height:${has ? Math.max(p.val > 0 ? 2 : 0, pos(p.val)).toFixed(1) : 0}%"></i>` : (has ? `<i class="cc-dot" style="bottom:${pos(p.val).toFixed(1)}%"></i>` : '');
+    h += `<button type="button" class="cc-col${i === last ? ' is-cur' : ''}" data-act="cc" data-l="${esc(p.label)}" data-t="${esc(has ? p.text : 'brak')}" aria-label="${esc(p.label + ': ' + (has ? p.text : 'brak'))}">${mark}<span class="cc-x">${i % every === (o.pts.length - 1) % every ? esc(p.short) : ''}</span></button>`;
+  });
+  h += `</div><details class="cc-tab"><summary>Tabela</summary><table><tbody>${o.pts.map(p => `<tr><th scope="row">${esc(p.label)}</th><td>${esc(p.val != null ? p.text : '—')}</td></tr>`).join('')}</tbody></table></details></figure>`;
+  return h;
+}
+// Poziome słupki z podpisem wartości (mało kategorii): piramida wycen, miejsca.
+function hBars(title, color, rows, unit) {
+  const max = Math.max.apply(null, rows.map(r => r.n).concat([1]));
+  return `<figure class="cc hb" style="--cc:var(${color})"><figcaption class="cc-h">${esc(title)}</figcaption>` + (rows.length
+    ? `<ul class="hb-l">${rows.map(r => `<li><span class="hb-k">${esc(r.k)}</span><span class="hb-b"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></span><span class="hb-n">${r.n}${unit ? ' ' + esc(unit) : ''}</span></li>`).join('')}</ul>`
+    : '<p class="empty">Brak danych z tego okresu.</p>') + '</figure>';
+}
+function chartsRunHTML(st, today) {
+  const ws = BL.runWeeks(st, today, 12);
+  const sh = w => PL.parse(w.from).getDate() + '.' + (PL.parse(w.from).getMonth() + 1);
+  const lab = w => 'Tydzień od ' + dayMon(w.from);
+  const km = v => BL.fmtKm(v) + ' km';
+  let h = '<div class="charts">';
+  h += colChart({ id: 'cc-km', title: 'Kilometry w tygodniu', color: '--p2', kind: 'bar', axis: v => BL.fmtKm(Math.round(v)) + ' km',
+    pts: ws.map(w => ({ short: sh(w), label: lab(w), val: w.km, text: km(w.km) })) });
+  h += colChart({ id: 'cc-long', title: 'Najdłuższy bieg w tygodniu', color: '--p2', kind: 'bar', axis: v => BL.fmtKm(Math.round(v)) + ' km',
+    pts: ws.map(w => ({ short: sh(w), label: lab(w), val: w.long, text: km(w.long) })) });
+  const hm = ws.filter(w => w.hm != null);
+  h += hm.length
+    ? colChart({ id: 'cc-hm', title: 'Przewidywany półmaraton (wyżej = szybciej)', color: '--p2', kind: 'dot', up: true, axis: v => BL.fmtDur(Math.round(v / 60) * 60).replace(/:00$/, ''),
+      ref: { val: 80 * 60, label: 'cel 1:20' }, pts: ws.map(w => ({ short: sh(w), label: lab(w), val: w.hm, text: w.hm != null ? BL.fmtDur(w.hm) : '' })) })
+    : `<figure class="cc"><figcaption class="cc-h">Przewidywany półmaraton</figcaption><p class="empty">Pojawi się po pierwszym biegu od 3 km z czasem.</p></figure>`;
+  return h + '</div>';
+}
+const MON_SHORT = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
+function chartsClimbHTML(st, today) {
+  const cs = BL.climbStats(st, today, 90, 6);
+  const grades = BL.GRADE_LIST.filter(g => cs.byGrade[g]).reverse().map(g => ({ k: g, n: cs.byGrade[g] }));
+  const places = BL.PLACES.concat(['Bez miejsca']).filter(p => cs.byPlace[p]).map(p => ({ k: p, n: cs.byPlace[p] }));
+  let h = '<div class="charts">';
+  h += hBars('Najtrudniejsza droga sesji, 90 dni', '--p4', grades, '');
+  h += hBars('Gdzie się wspinasz, 90 dni', '--p4', places, '');
+  const got = cs.monthly.filter(m => m.i >= 0);
+  h += got.length
+    ? colChart({ id: 'cc-grade', title: 'Najtrudniejsza droga w miesiącu', color: '--p4', kind: 'dot', axis: v => BL.GRADE_LIST[Math.max(0, Math.min(BL.GRADE_LIST.length - 1, Math.round(v)))],
+      lo: Math.max(0, Math.min.apply(null, got.map(m => m.i)) - 1), hi: Math.max.apply(null, got.map(m => m.i).concat([BL.GRADE_LIST.indexOf('7c')])),
+      ref: { val: BL.GRADE_LIST.indexOf('7c'), label: 'cel 7c' },
+      pts: cs.monthly.map(m => ({ short: MON_SHORT[m.month], label: MON_SHORT[m.month] + ' ' + m.year, val: m.i >= 0 ? m.i : null, text: m.grade || '' })) })
+    : `<figure class="cc"><figcaption class="cc-h">Najtrudniejsza droga w miesiącu</figcaption><p class="empty">Pojawi się po wspinaniu z wyceną najtrudniejszej drogi.</p></figure>`;
+  return h + '</div>';
+}
+
 // ---------- Dziś ----------
 const timedRun = b => !!b && (b.kind === 'timed' || b.kind === 'run') && !!(b.items && b.items.length);
 // Linia tempa i ostrzeżenie dla bloków, które mają sens dopiero po teście 5 km.
@@ -339,6 +407,6 @@ function editorHTML(st, ui) {
   return h;
 }
 
-Object.assign(V, { phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
+Object.assign(V, { chartsRunHTML, chartsClimbHTML, phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
 if (typeof module !== 'undefined' && module.exports) module.exports = V;
 })(typeof window !== 'undefined' ? window : globalThis);

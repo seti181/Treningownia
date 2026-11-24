@@ -501,6 +501,45 @@ function paceText(b, pc) {
   return z ? 'Tempo ' + z.name + ': ' + fmtPace(z.lo) + '–' + fmtPace(z.hi) + '/km' : '';
 }
 
+// ---------- dane do wykresów ----------
+// Tygodnie biegania (od najstarszego): suma km, najdłuższy bieg, przewidywany półmaraton na koniec tygodnia.
+function runWeeks(st, today, n) {
+  const all = entries(st).filter(x => x.e.t === 'bieg');
+  const cur = weekStart(today), out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const from = PL.addDays(cur, -7 * i), to = PL.addDays(from, 6);
+    let km = 0, long = 0;
+    all.forEach(x => { if (x.d >= from && x.d <= to) { km += x.e.km || 0; long = Math.max(long, x.e.km || 0); } });
+    const f = runForm(st, to < today ? to : today);
+    out.push({ from, to, km: Math.round(km * 10) / 10, long, hm: f ? f.hm : null });
+  }
+  return out;
+}
+// Wspinanie z ostatnich dni: najtrudniejsza droga sesji (piramida), miejsca, najtrudniejsza droga w miesiącach.
+function climbStats(st, today, days, months) {
+  const from = PL.addDays(today, -(days - 1));
+  const byGrade = {}, byPlace = {};
+  let sessions = 0;
+  const cl = entries(st).filter(x => x.e.t === 'wspin');
+  cl.forEach(x => {
+    if (x.d < from || x.d > today) return;
+    sessions++;
+    if (x.e.grade) byGrade[x.e.grade] = (byGrade[x.e.grade] || 0) + 1;
+    const p = x.e.place || 'Bez miejsca';
+    byPlace[p] = (byPlace[p] || 0) + 1;
+  });
+  const monthly = [];
+  const t = PL.parse(today);
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(t.getFullYear(), t.getMonth() - i, 1, 12);
+    const key = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+    let best = -1;
+    cl.forEach(x => { if (x.d.slice(0, 7) === key && x.e.grade) best = Math.max(best, GRADE_LIST.indexOf(x.e.grade)); });
+    monthly.push({ key, month: d.getMonth(), year: d.getFullYear(), grade: best >= 0 ? GRADE_LIST[best] : null, i: best });
+  }
+  return { sessions, byGrade, byPlace, monthly };
+}
+
 // ---------- czas, dystans, tempo ----------
 const pad = n => (n < 10 ? '0' : '') + n;
 function fmtDur(sec) {
@@ -536,7 +575,7 @@ const API = {
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
   challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM, ZONES, paces, paceText, fmtPace,
-  phaseOf, isRecovery, shoulderAlarm, proposals, applyProposal, decide
+  phaseOf, isRecovery, shoulderAlarm, proposals, applyProposal, decide, runWeeks, climbStats
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
