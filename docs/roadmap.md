@@ -20,7 +20,8 @@ The shoulder rehab stays in the app and keeps its rules (CLAUDE.md): nothing new
 
 - Done: rehab trainer (5 phases, timed player, morning check, pain rules, points and grades, restart and break handling), 33 animated exercises, body-weight log with a trend chart.
 - Done (24 November 2026, stage 0 code): the new shell "Treningownia": navigation Dziś / Tydzień / Dziennik / Postęp / Więcej, installable and offline (PWA), account sync through Firebase (docs/sync.md), backup to a file, tests in CI before every deploy. Fresh data under new storage keys.
-- Waiting on the owner: create the Firebase project and send `apiKey` and `projectId` (docs/sync.md), create the GitHub repository and switch Pages on, and a commit e-mail for the public repository. Then: first push, sign in on the phone, install.
+- Live since 24 November 2026: https://seti181.github.io/Treningownia/ (public repository github.com/seti181/Treningownia; commits use the owner's GitHub no-reply address).
+- Waiting on the owner: create the Firebase project and send `apiKey` and `projectId` (docs/sync.md). Then: sign in on the phone.
 
 ## Two levels of blocks
 
@@ -34,11 +35,11 @@ Rules the planner checks (to agree with the owner): hard days spaced out (for ex
 
 ## Stages
 
-### 0. Foundations: the new app shell (built; waiting for Firebase and GitHub)
+### 0. Foundations: the new app shell (live; sync waiting for Firebase)
 
 A rebuild around what already works: the player, the animation engine and its exercises, and the rehab logic stay; the rest (navigation, state, screens) is new. Data starts fresh. Status per item in brackets.
 
-1. **Git and GitHub** (local repository created; waiting for the owner's GitHub repository). The folder was not a git repository. Create it, push to a public GitHub repository (GitHub Pages is free only for public ones, which is why personal details stay in CLAUDE.local.md), and switch Pages on.
+1. **Git and GitHub** (done). Public repository github.com/seti181/Treningownia (GitHub Pages is free only for public ones, which is why personal details stay in CLAUDE.local.md), Pages from GitHub Actions. The first deploys failed until the Pages setting took effect; the Actions are on current versions (checkout v7, setup-node v7, configure-pages v6, upload-pages-artifact v5, deploy-pages v5).
 2. **New state (format 3)** (done). Version 3 under the new key `treningownia-v1`; sanitize and merge moved to `src/store.js` and tested in Node. The rehab and weight keys stay as they were; stage 1 adds blocks, phases, the week and one log as new top-level keys, so no migration is needed.
 3. **Navigation** (done). Dziś / Tydzień / Dziennik / Postęp / Więcej; Waga, Atlas, Rehabilitacja barku and Ustawienia are pages under Więcej. Tydzień shows the next 7 days; Dziennik has the calendar and every entry by day (sessions, morning checks, weight); Postęp keeps points, badges, the pain chart, gates and a weight card.
 4. **Rename** (done): Treningownia.
