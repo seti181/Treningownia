@@ -1,0 +1,19 @@
+{
+  // The code uses 2-space indents and long template-literal lines: keep formatters from rewriting it.
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.formatOnSave": false,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "search.exclude": {
+    "dist/**": true,
+    "shots/**": true,
+    "node_modules/**": true
+  },
+  "files.watcherExclude": {
+    "**/dist/**": true,
+    "**/shots/**": true
+  }
+}

@@ -1,0 +1,15 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# test screenshots and contact sheets
+shots/
+
+# personal notes for Claude Code: body, health and history details stay on this computer
+CLAUDE.local.md
+.claude/settings.local.json
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+*.log

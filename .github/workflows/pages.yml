@@ -1,0 +1,59 @@
+# On every push to main: run all tests, and only if they pass, build the app and publish dist/web to GitHub Pages.
+# One-time setup on github.com: Settings → Pages → Build and deployment → Source: GitHub Actions.
+name: Test and deploy
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Test
+        run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build
+        # The build has no dependencies: the Node.js preinstalled on the runner is enough.
+        run: |
+          node --version
+          node tools/build.js
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/web
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "npm",
+      "script": "build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [],
+      "detail": "src/ → dist/web (index.html, manifest, service worker, icons)"
+    },
+    {
+      "label": "test",
+      "type": "npm",
+      "script": "test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": [],
+      "detail": "Build, then every test (fails on any FAIL line)"
+    },
+    {
+      "label": "preview",
+      "type": "npm",
+      "script": "preview",
+      "isBackground": true,
+      "problemMatcher": [],
+      "detail": "Serve dist/web on http://localhost:8080"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "treningownia",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Personal training app (Polish UI), installable and offline: plan, journal and progress; shoulder rehab with timed sessions and animated exercises, body-weight log, cloud sync; running and climbing next.",
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "npm run build && node tests/test-plan.js && node tests/test-store.js && node tests/test-sync.js && node tests/test-offline.js && node tests/test-pwa.js && node tests/test-app.js",
+    "test:plan": "node tests/test-plan.js && node tests/test-store.js",
+    "preview": "node tools/serve.js",
+    "shots": "npm run build && node tests/shots-weight.js",
+    "sheet": "node tools/sheet.js",
+    "icons": "node tools/icons.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

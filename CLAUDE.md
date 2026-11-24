@@ -1,0 +1,107 @@
+# Treningownia: personal training app
+
+A phone-first web app with a Polish UI, built for one person: the owner. It started as a left-shoulder rehab trainer and is becoming the owner's whole training app: rehab, body weight, climbing and running. Grow it in small modules, following docs/roadmap.md, and check with the owner before committing to a big one.
+
+Personal context (body, injury history, schedule, how the owner likes to work) is in `CLAUDE.local.md`. Claude Code loads it automatically. It is in .gitignore because this repository may be public: never copy its details into tracked files. If it is missing, ask instead of guessing.
+
+## Owner and goals
+
+- Talks to Claude in English, short and informal. Every word in the app is Polish.
+- The left shoulder is in rehab; that is why the app exists. Until the owner says rehab is finished, nothing new may load the left shoulder beyond what the current rehab phase allows: no lock-offs with the left arm, and anything done hanging (hangboard included) must fit the rehab phase. Ask when in doubt.
+- Logs body weight daily.
+- Goals: a 1:20 half marathon (no race chosen yet) and climbing 7c. The app should become the owner's complete training app: log every session, show progress, suggest what to do today, and progress the training as the owner gets stronger, built from training blocks the owner can edit and move. The plan is in docs/roadmap.md.
+- Equipment: gymnastic rings, resistance bands, dumbbells, a bathroom scale, a door-frame pull-up bar, a hangboard (20 mm and 15 mm crimps), a top-rope-solo kit, access to a training wall. No gym machines, no smartwatch (manual entry). Ask before assuming anything else.
+- Before building a new module or anything big, sum up your understanding and the open questions, and wait for a go-ahead. Small fixes: just do them.
+
+## Commands
+
+```sh
+npm run build       # src/ → dist/web: index.html (the whole app), manifest.webmanifest, sw.js, icons/
+npm test            # build, then every test; exits 1 on any FAIL line
+npm run test:plan   # plan and state logic only, no browser, under a second
+npm run preview     # serve dist/web on http://localhost:8080 (a phone on the same Wi-Fi can open it)
+npm run shots       # screenshots of the weight screens → shots/
+npm run sheet -- kolka-z-nogami,australijskie   # animation frames → shots/sheetN.svg
+npm run icons       # redraw the app icons → src/icons/*.png (only when the logo changes)
+```
+
+Setup once: `npm install`, then `npx playwright install chromium`. Playwright is only for tests; the build needs nothing but Node 18+.
+
+## Layout
+
+```
+src/          app code, inlined into one HTML file by the build
+  core.js     animation engine + EX, the 33 rehab exercises          → window.ATLAS
+  ui.js       atlas card animation loop
+  plan.js     rehab plan, training days, points, weight helpers      → window.PLAN
+  store.js    storage key, sanitize, merge, canon, backup file       → window.STORE
+  views.js    HTML builders for every panel, weight chart            → window.VIEWS
+  config.js   Firebase project (apiKey, projectId); empty = no sync  → window.CONFIG
+  sync.js     Firebase Auth + Firestore over REST, no SDK            → window.CLOUD
+  trainer.js  controller: navigation, events, player, forms, storage, sync, backup (IIFE, no globals)
+  sw.js       service worker (offline), copied to dist/web with the version filled in
+  icons/      app icons (PNG, drawn by tools/icons.js, kept in git)
+  page.css, player.css
+tools/        build.js, serve.js (preview), sheet.js (animation frames), icons.js
+tests/        check.js (shared helpers), test-*.js, shots-weight.js
+docs/         architecture.md, sync.md, rehab.md, weight.md, roadmap.md
+dist/         build output, not in git
+.github/workflows/pages.yml   on push to main: run the tests, then build and publish dist/web to GitHub Pages
+```
+
+## How it works
+
+- One self-contained HTML file, plus a manifest, a service worker and icons so it installs on the phone and works offline. The build inlines the scripts in order core → ui → plan → store → views → config → sync → trainer. Each is plain browser JS; all but ui and trainer also `module.exports` their API, so Node can run them (tests, prerender).
+- views.js returns HTML strings; trainer.js rebuilds a panel with `innerHTML`, then restores focus and caret. Form drafts live in the `ui` object, so a re-render never loses typing, and a panel never re-renders on its own while the owner types in it.
+- State is one JSON object (shape in docs/architecture.md), always saved in localStorage (`treningownia-v1`). When the owner is signed in, it also syncs with one Firestore document through `sync.js`: read, `merge()`, write only if different, with a version condition (docs/sync.md). Points, grades and averages are computed from the log each time, never stored.
+- Tabs: Dziś (today), Tydzień (next 7 days), Dziennik (journal), Postęp (progress), Więcej (more). Under Więcej: Waga, Atlas, Rehabilitacja barku, Ustawienia (account, backup, sound). Five tabs fill a 320px screen, so new things go under Więcej or into an existing tab.
+
+## Rules
+
+- UI text: Polish, short, imperative ("Zapisz", "Trzymaj"), no emojis, decimal comma (66,4). Code comments: match the surrounding code (mostly Polish).
+- Keep it one self-contained HTML file (plus the PWA files): no frameworks, bundlers, SDKs or CDNs (Google Fonts is the one optional extra). Firebase is used through its REST APIs. Ask before adding any dependency.
+- Sources must not contain `</script` (the build refuses).
+- A new state field goes into `defaults()` (plan.js), `sanitize()` and `merge()` (store.js) in the same change, with a merge test in tests/test-store.js. `sanitize()` keeps only known keys, so a field missing there is wiped on the next save.
+- Deletions that must sync are markers (`{del: true, at}`), not removed keys.
+- Dates are local `YYYY-MM-DD` strings: use the helpers in plan.js (`ymd`, `addDays`, `diff`, `dow`).
+- Accessibility: real buttons, visible focus, `aria-live` on readouts that change, 44px touch targets, works at 320px width, light and dark themes, respects `prefers-reduced-motion`.
+- No native form submit: buttons are `type="button"` and Enter is handled in JS.
+- Colours come from the tokens in page.css. Traffic-light colours (`--ok`, `--warn`, `--bad`) mean good or bad, so never use them for weight going up or down.
+- Not medical advice. Don't change rehab doses, gates or pain rules unless the owner asks; the rehab plan document is the source of truth. New training plans start conservative and the owner confirms them.
+- Before you finish: `npm test` passes, and after UI changes you have looked at the screenshots in shots/ (390px and 320px, light and dark).
+- Update the matching docs/ file, and this file if a command or rule changed, in the same change.
+
+## Adding a module (fingers, running, climbing log …)
+
+1. Agree the scope with the owner first; docs/roadmap.md lists the open questions for each idea.
+2. Data: a new top-level state key (for example `fingers`, `runs`) with defaults, sanitize, merge and a sync test.
+3. Logic in `src/<module>.js`, exposing `window.<NAME>` and `module.exports`. Add it to the script list in tools/build.js, before trainer.js.
+4. Views: a builder in views.js or `src/<module>-views.js`, a place in the navigation (under Więcej, or inside Tydzień, Dziennik and Postęp), and a line on Dziś when there is something to do today.
+5. Timed work reuses the player: a session is `{id, label, title, gap, blocks[]}` with `hold`, `reps` and `time` blocks (docs/rehab.md).
+6. Points: decide with the owner whether the module earns any.
+7. Tests: logic in Node like tests/test-plan.js, UI in Playwright like tests/test-app.js (`go(page, name)` opens any page), both using `check()` from tests/check.js.
+8. Docs: write `docs/<module>.md` and add it to the list below.
+
+## Deploy
+
+- **GitHub Pages** is the app: every push to `main` runs .github/workflows/pages.yml, which runs `npm test` and, only if it passes, builds and publishes `dist/web`. The repository must be public (free Pages); personal details stay in CLAUDE.local.md. One-time setup on GitHub: Settings → Pages → Source: GitHub Actions.
+- **Firebase** (sync): the project's `apiKey` and `projectId` live in src/config.js; setup and security rules in docs/sync.md. The API key is not a secret.
+- The old claude.ai artifact (https://claude.ai/artifact/HtiHUjsonGRsj3sad5ZmNY) is retired: the build no longer makes it, and the new app started with fresh data.
+- Rehab plan document (Polish, private Claude doc): https://claude.ai/artifact/1szy4nNPxGoVVRGnDQ9Mgd. Claude Code can't edit it: when a rehab number changes, tell the owner exactly what to change there.
+
+## Gotchas
+
+- Compare states with `canon()` (sorted-key JSON), never plain JSON, or sync writes when nothing changed.
+- Playwright: control time with `page.clock`, and use `reducedMotion: 'reduce'` for full sessions (animation frames make fast-forwarding slow). Blocked font requests are not errors (`ignorable()` in tests/check.js).
+- Test hooks: `window.__TRAINER_OFFSET` (ms) shifts the app's clock; `window.__TEST_FIREBASE = { apiKey, projectId }` points sync at a fake Firebase (tests/test-sync.js).
+- On GitHub Pages all of the account's repositories share one origin (`<user>.github.io`), so localStorage keys must stay app-specific (`treningownia-…`). Never rename them: the saved data would be lost.
+- The service worker serves the cached page when the network is slow or gone. Test it with `npm run preview` (localhost); a page opened as a file never registers it.
+- iPhone: a web app added to the home screen has its own storage, separate from Safari.
+
+## Docs
+
+- docs/architecture.md: build, runtime modules, navigation, state shape, storage, backup, offline, design system, tests.
+- docs/sync.md: account and cloud sync (Firebase), the sync loop, the one-time Firebase setup.
+- docs/rehab.md: rehab plan logic, phases and doses, the player, the animation engine.
+- docs/weight.md: weight tracking and its chart.
+- docs/roadmap.md: next steps, module ideas, open questions, decision log.
