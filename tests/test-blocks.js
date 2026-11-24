@@ -31,6 +31,7 @@ async function open(b, o) {
   const cards = await page.locator('#dzis-in .blk .sess-title').allTextContents();
   ok('1 Tuesday shows the fingers and climbing blocks', cards.join('|') === 'Zwisy na palcach 20 mm|Wspinanie', cards.join('|'));
   ok('1 climbing card reminds about the shoulder', /Bez blokowania/.test(await txt('#dzis-in .blk-warn')));
+  ok('1 weekly challenges on Dziś: 4, full week and km first', (await page.locator('#dzis-in .ch .ch-i').count()) === 4 && /Pełny tydzień/.test(await txt('#dzis-in .ch .ch-i >> nth=0')) && /Kilometry tygodnia/.test(await txt('#dzis-in .ch .ch-i >> nth=1')), await txt('#dzis-in .ch'));
   ok('1 rehab is still there, under its own heading', /Rehabilitacja barku/.test(await txt('#dzis-in')) && (await page.isVisible('[data-act="start"][data-s="rano"]')));
 
   // 2) zwisy z zegarem: ćwiczenia bez animacji w odtwarzaczu
@@ -68,6 +69,7 @@ async function open(b, o) {
   ok('4 bad time: error, nothing saved', (await page.isVisible('#lg-h.is-err')) && !((await st()).blog['2026-11-23']));
   await page.fill('#lg-time', '35:00'); await page.press('#lg-time', 'Enter'); await page.clock.runFor(200);
   ok('4 Enter saves; back on Tydzień, Monday done', (await page.isVisible('#tab-tydzien')) && /6,5 km · 35:00 · 5:23\/km/.test(await txt('#wk-2026-11-23')), await txt('#wk-2026-11-23'));
+  ok('4 week planner shows the challenges', (await page.locator('#tydzien-in .ch .ch-i').count()) === 4);
   ok('4 week summary: 1 run, 1 climb, 6,5 km', /Biegi 1\/3/.test(await txt('.wk-sum')) && /Wspinanie 1\/3/.test(await txt('.wk-sum')) && /6,5 km/.test(await txt('.wk-sum')), await txt('.wk-sum'));
 
   // 5) przeniesienie środowego biegu na czwartek, dodanie bloku w sobotę, pominięcie
@@ -124,14 +126,20 @@ async function open(b, o) {
   await page.fill('#lg-min', '20'); await page.click('[data-act="lg-save"]'); await page.clock.runFor(200);
   const jr = await txt('#dziennik-in .jr-day >> nth=0');
   ok('7 extra entry from the journal, listed under today', (await page.isVisible('#tab-dziennik')) && /Rozciąganie pełne/.test(jr) && /Wspinanie/.test(jr) && /Zwisy na palcach/.test(jr), jr.slice(0, 160));
+  await page.click('[data-act="lg-new"]'); await page.clock.runFor(100);
+  await page.selectOption('#lg-b', 'bieg-dlugi'); await page.clock.runFor(100);
+  await page.fill('#lg-km', '8'); await page.fill('#lg-time', '46:00'); await page.click('[data-act="lg-save"]'); await page.clock.runFor(200);
+  ok('7 a longer run: toast with the record and two challenges', /rekord: najdłuższy bieg 8 km/.test(await txt('#toast')) && /wyzwanie: Kilometry tygodnia/.test(await txt('#toast')) && /wyzwanie: Długi bieg/.test(await txt('#toast')), await txt('#toast'));
+  ok('7 record listed in the journal', /Rekord: Najdłuższy bieg/.test(await txt('#dziennik-in .jr-day >> nth=0')));
   await page.screenshot({ path: OUT + 'b-09-dziennik.png', fullPage: true });
 
   // 8) postęp
   await go(page, 'postep');
-  ok('8 progress: road to 7c, this week card', /Droga do 7c/.test(await txt('#postep-in .t-title')) && /Biegi ?1\/3/.test(await txt('#postep-in .wsum')), await txt('#postep-in .wsum'));
+  ok('8 progress: challenges and records', (await page.locator('#postep-in .ch .ch-i').count()) === 4 && /Najdłuższy bieg\s*8 km/.test(await txt('#postep-in .recs')) && /Najlepsze tempo od 5 km/.test(await txt('#postep-in .recs')), await txt('#postep-in .recs'));
+  ok('8 progress: road to 7c, this week card', /Droga do 7c/.test(await txt('#postep-in .t-title')) && /Biegi ?2\/3/.test(await txt('#postep-in .wsum')), await txt('#postep-in .wsum'));
   await page.screenshot({ path: OUT + 'b-10-postep.png', fullPage: true });
   await page.reload(); await page.clock.runFor(300);
-  ok('8 after reload everything is still there', (await page.locator('#dzis-in .blk.is-done').count()) === 3);
+  ok('8 after reload everything is still there', (await page.locator('#dzis-in .blk.is-done').count()) === 4);
   await ctx.close();
 
   // 9) 320 px i ciemny motyw: bez przewijania w bok

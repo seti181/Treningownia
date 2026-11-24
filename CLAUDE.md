@@ -34,7 +34,7 @@ src/          app code, inlined into one HTML file by the build
   core.js     animation engine + EX, the 33 rehab exercises          → window.ATLAS
   ui.js       atlas card animation loop
   plan.js     rehab plan, training days, points, weight helpers      → window.PLAN
-  blocks.js   training blocks: library, week pattern, day changes, block log, points → window.BLOCKS
+  blocks.js   training blocks: library, week pattern, day changes, block log, points, challenges, records → window.BLOCKS
   store.js    storage key, sanitize, merge, canon, backup file       → window.STORE
   views.js    HTML builders for every panel, weight chart            → window.VIEWS
   blocks-views.js  block screens (Dziś cards, Tydzień planner, log form, library, editor), added to VIEWS

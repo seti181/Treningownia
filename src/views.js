@@ -217,7 +217,8 @@ function progressHTML(st, today, prog) {
     const ws = BLK().weekStats(st, today);
     h += `<h2 class="sub-h">Ten tydzień</h2><section class="card wsum"><dl class="wsum-dl"><div><dt>Biegi</dt><dd><b>${ws.runs}</b>/${BLK().WEEK_RUNS}</dd></div><div><dt>Wspinanie</dt><dd><b>${ws.climbs}</b>/${BLK().WEEK_CLIMBS}</dd></div><div><dt>Kilometry</dt><dd><b>${BLK().fmtKm(ws.km)}</b></dd></div>` +
       `<div><dt>Pełny tydzień</dt><dd>${ws.full ? 'zaliczony' : '+' + BLK().WEEK_PTS + ' pkt'}</dd></div></dl><button type="button" class="chip-btn" data-act="tab" data-v="tydzien">Plan tygodnia</button></section>`;
-    h += `<div class="stats stats-3"><div class="stat"><b>${BLK().fmtKm(prog.km || 0)}</b><span>km biegu łącznie</span></div><div class="stat"><b>${prog.climbs || 0}</b><span>${plural(prog.climbs || 0, 'wspinanie', 'wspinania', 'wspinań')}</span></div><div class="stat"><b>${prog.fullWeeks || 0}</b><span>pełne tygodnie</span></div></div>`;
+    h += `<div class="stats stats-3"><div class="stat"><b>${BLK().fmtKm(prog.km || 0)}</b><span>km biegu łącznie</span></div><div class="stat"><b>${prog.climbs || 0}</b><span>${plural(prog.climbs || 0, 'wspinanie', 'wspinania', 'wspinań')}</span></div><div class="stat"><b>${(prog.chDone || []).length}</b><span>zaliczone wyzwania</span></div></div>`;
+    if (API.challengesHTML) h += `<h2 class="sub-h">Wyzwania tygodnia</h2>${API.challengesHTML(BLK().challenges(st, BLK().weekStart(today)), {})}<h2 class="sub-h">Rekordy</h2>${API.recordsHTML(st, today)}`;
   }
   // droga: wyceny od 4a do 7c
   h += `<div class="route" role="img" aria-label="Poziom ${esc(g.name)} na drodze od 4a do 7c">`;
@@ -252,7 +253,7 @@ function progressHTML(st, today, prog) {
   const TRS = BLK() ? BLK().TRACKS : {};
   h += `<details class="how card"><summary>Jak zdobywasz punkty</summary><table class="how-t"><tbody>
 ${Object.keys(TRS).map(t => `<tr><td>Blok: ${esc(TRS[t].name.toLowerCase())}</td><td>${TRS[t].pts}</td></tr>`).join('')}
-${BLK() ? `<tr><td>Ocena wysiłku albo bólu przy bloku</td><td>+${BLK().RATE_PTS}</td></tr><tr><td>Pełny tydzień: ${BLK().WEEK_RUNS} biegi i ${BLK().WEEK_CLIMBS} wspinania</td><td>+${BLK().WEEK_PTS}</td></tr>` : ''}
+${BLK() ? `<tr><td>Ocena wysiłku albo bólu przy bloku</td><td>+${BLK().RATE_PTS}</td></tr><tr><td>Wyzwanie tygodnia (pełny tydzień +${BLK().WEEK_PTS})</td><td>+10 do +25</td></tr><tr><td>Pobity rekord</td><td>+${BLK().REC_PTS}</td></tr>` : ''}
 <tr><td>Sesja rehabilitacji rano lub po pracy (Faza 1)</td><td>${PL.SPTS.rano}</td></tr>
 <tr><td>Lekki dzień</td><td>${PL.SPTS.lekki}</td></tr>
 <tr><td>Trening siłowy</td><td>${PL.SPTS.sila}</td></tr>
@@ -531,7 +532,8 @@ function journalHTML(st, today, prog, ui) {
       li += `<li class="jr-b" style="--c:var(${T.c})"><span class="h-s">${esc(r.e.name)} <small>${esc(T.name)}</small></span>${det ? `<span class="h-x">${esc(det)}</span>` : ''}<span class="h-pts">+${prog.byEntry[d + '|b:' + r.k] || 0}</span>` +
         `<button type="button" class="icon-btn h-ed" data-act="b-log" data-d="${d}" data-k="${esc(r.k)}" aria-label="Popraw wpis: ${esc(r.e.name)}">${ICON.chev}</button>${r.e.note ? `<span class="h-n">${esc(r.e.note)}</span>` : ''}</li>`;
     });
-    if (prog.byEntry[d + '|week']) li += `<li><span class="h-s">Pełny tydzień</span><span class="h-pts">+${prog.byEntry[d + '|week']}</span></li>`;
+    (prog.chDone || []).filter(c => c.d === d).forEach(c => { li += `<li class="jr-win"><span class="h-s">Wyzwanie: ${esc(c.name)}</span><span class="h-pts">+${c.pts}</span></li>`; });
+    (prog.recordEvents || []).filter(r => r.d === d).forEach(r => { li += `<li class="jr-win"><span class="h-s">Rekord: ${esc(r.name)}</span><span class="h-x">${esc(r.text)}</span><span class="h-pts">+${r.pts}</span></li>`; });
     if (x.w != null) li += `<li><span class="h-s">Waga</span><span class="h-w">${kg1(x.w)} kg</span></li>`;
     return li + '</ul></li>';
   }).join('') + '</ol>';

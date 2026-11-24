@@ -42,11 +42,42 @@ const before = PL.progress(st, '2026-11-29');
 add('2026-11-27', 'p0-bieg-dlugi', 'bieg-dlugi', { km: 10 });
 add('2026-11-29', 'p0-wspinanie', 'wspinanie', { pain: 1 });
 const full = PL.progress(st, '2026-11-29');
-check('full week: +25 once, badge, counted in stats', full.fullWeeks === 1 && full.total - before.total === 15 + 15 + 2 + BL.WEEK_PTS && full.badges.find(b => b.id === 'tydzien').d === '2026-11-29', String(full.total - before.total));
+const extra = full.chDone.filter(c => !before.chDone.some(x => x.id === c.id && x.week === c.week)).reduce((n, c) => n + c.pts, 0) + (full.recordEvents.length - before.recordEvents.length) * BL.REC_PTS;
+check('full week: +25 once (as a challenge), badge, counted in stats', full.fullWeeks === 1 && full.chDone.filter(c => c.id === 'pelny').length === 1 && full.total - before.total === 15 + 15 + 2 + extra && full.badges.find(b => b.id === 'tydzien').d === '2026-11-29', (full.total - before.total) + ' = 32 + ' + extra);
 const ws = BL.weekStats(st, '2026-11-26');
 check('week stats', ws.runs === 3 && ws.climbs === 3 && ws.km === 21.5 && ws.full && ws.from === MON);
 check('streak counts every training day', full.best >= 5, 'best ' + full.best);
 check('logged extra block shows on its day', (() => { add('2026-11-28', 'xextra', 'rozc-pelne'); return BL.dayView(st, '2026-11-28').some(x => x.k === 'xextra' && x.extra); })());
+
+// wyzwania tygodnia
+const chw = BL.challenges(st, MON);
+check('challenges: 4 per week, full week and km always there', chw.length === 4 && chw[0].id === 'pelny' && chw[1].id === 'km', chw.map(c => c.id + ' ' + c.value + '/' + c.target).join(', '));
+check('challenges: rotation differs between weeks', BL.challenges(st, '2026-11-30').slice(2).map(c => c.id).join() !== chw.slice(2).map(c => c.id).join());
+const fresh = PL.defaults(MON);
+check('km target: at least 10 km with no history', BL.challenges(fresh, MON)[1].target === 10);
+const hist = PL.defaults(MON);
+for (let w = 1; w <= 4; w++) BL.logBlock(hist, PL.addDays(MON, -7 * w), 'p0-bieg-dlugi', g('bieg-dlugi'), { km: 20 }, at(w));
+const kmT = BL.challenges(hist, MON)[1].target;
+check('km target: last 4 weeks average + 10% (20 km a week -> 22)', kmT === 22, String(kmT));
+check('km target is fixed during the week', (() => { BL.logBlock(hist, MON, 'p0-bieg-spokojny', g('bieg-spokojny'), { km: 30 }, at(9)); return BL.challenges(hist, MON)[1].target === 22 && BL.challenges(hist, MON)[1].done; })());
+const pr = PL.progress(st, '2026-11-29');
+check('challenge points and badge in progress', pr.chDone.some(c => c.id === 'pelny' && c.d === '2026-11-29') && pr.chDone.some(c => c.id === 'km') && pr.badges.find(b => b.id === 'wyzwanie1').d, pr.chDone.map(c => c.id + '@' + c.d).join(', '));
+
+// rekordy
+const rs = PL.defaults(MON), rg = id => BL.getBlock(rs, id);
+BL.logBlock(rs, MON, 'p0-bieg-spokojny', rg('bieg-spokojny'), { km: 6, sec: 2160 }, at(1));
+check('records: first values only set the bar', BL.records(BL.entries(rs)).events.length === 0 && BL.records(BL.entries(rs)).best.km.text === '6 km');
+BL.logBlock(rs, '2026-11-25', 'p0-bieg-przebiezki', rg('bieg-przebiezki'), { km: 7, sec: 2400 }, at(2));
+BL.logBlock(rs, '2026-11-24', 'p1-wspinanie', rg('wspinanie'), { grade: '6a', routes: 10 }, at(3));
+BL.logBlock(rs, '2026-11-26', 'p0-wspinanie', rg('wspinanie'), { grade: '6a+', routes: 9 }, at(4));
+const rr = BL.records(BL.entries(rs));
+check('records: longest run, pace, hardest grade beaten; fewer routes is no record', rr.events.map(e => e.id).join() === 'km,tempo5,grade' && rr.best.tempo5.text === '5:43/km' && rr.best.grade.text === '6a+' && rr.best.drogi.text === '10 dróg', rr.events.map(e => e.id).join());
+BL.logBlock(rs, '2026-12-01', 'p0-bieg-spokojny', rg('bieg-spokojny'), { km: 5 }, at(5));
+BL.logBlock(rs, '2026-12-03', 'p0-bieg-spokojny', rg('bieg-spokojny'), { km: 9 }, at(6));
+const rw = BL.records(BL.entries(rs));
+check('records: week km beaten once when a week passes the best earlier week', rw.events.filter(e => e.id === 'tydzien').length === 1 && rw.best.tydzien.text === '14 km', rw.events.map(e => e.id + '@' + e.d).join());
+const prr = PL.progress(rs, '2026-12-03');
+check('record points: +10 each, badge', prr.recordEvents.length === rw.events.length && prr.badges.find(b => b.id === 'rekord1').d === '2026-11-25');
 
 // biblioteka: edycja wbudowanego, kopia, własny blok, usunięcie
 const ed = JSON.parse(JSON.stringify(g('palce-20'))); ed.items[1].sets = 5;

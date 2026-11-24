@@ -225,6 +225,119 @@ function weekStats(st, d) {
   return s;
 }
 
+// ---------- wyzwania tygodnia ----------
+// Co tydzień (pn–nd) 4 wyzwania: pełny tydzień, kilometry, i dwa rotujące. Cele liczone z 4 tygodni PRZED tygodniem,
+// więc nie zmieniają się w trakcie. Kilometry rosną najwyżej o 10% tygodniowo (bezpieczne tempo zwiększania objętości).
+const CH_POOL = ['dlugi', 'palce2', 'sila2', 'rozc3', 'dni5', 'drogi', 'plan'];
+const CH_REF = '2026-01-05'; // poniedziałek, od którego liczy się rotacja
+const REC_PTS = 10;
+const ceil1 = v => Math.ceil(v - 1e-9);
+function weekIndex(from) { return Math.floor(PL.diff(CH_REF, from) / 7); }
+function challenges(st, from, all) {
+  all = all || entries(st);
+  const to = PL.addDays(from, 6), back = PL.addDays(from, -28);
+  const prev = all.filter(x => x.d >= back && x.d < from);
+  const wk = all.filter(x => x.d >= from && x.d <= to);
+  let kmPrev = 0, longPrev = 0, routesPrev = 0;
+  prev.forEach(x => { if (x.e.t === 'bieg') { kmPrev += x.e.km || 0; longPrev = Math.max(longPrev, x.e.km || 0); } if (x.e.t === 'wspin') routesPrev += x.e.routes || 0; });
+  const kmT = Math.max(10, ceil1(kmPrev / 4 * 1.1));
+  const longT = Math.min(21, Math.max(8, Math.floor(longPrev) + 1));
+  const routesT = Math.max(15, ceil1(routesPrev / 4 * 1.1));
+  // zaplanowane bloki tygodnia (dla „bez pomijania”)
+  const planned = [];
+  for (let i = 0; i < 7; i++) { const d = PL.addDays(from, i); dayItems(st, d).forEach(x => planned.push({ d, k: x.k })); }
+  const DEFS = {
+    pelny: { name: 'Pełny tydzień', desc: WEEK_RUNS + ' biegi i ' + WEEK_CLIMBS + ' wspinania', target: WEEK_RUNS + WEEK_CLIMBS, pts: WEEK_PTS, unit: '', val: a => Math.min(a.runs, WEEK_RUNS) + Math.min(a.climbs, WEEK_CLIMBS) },
+    km: { name: 'Kilometry tygodnia', desc: 'Przebiegnij ' + kmT + ' km', target: kmT, pts: 20, unit: 'km', val: a => a.km },
+    dlugi: { name: 'Długi bieg', desc: 'Jeden bieg co najmniej ' + longT + ' km', target: longT, pts: 15, unit: 'km', val: a => a.longest },
+    palce2: { name: 'Palce dwa razy', desc: '2 treningi palców', target: 2, pts: 15, unit: '', val: a => a.palce },
+    sila2: { name: 'Siła dwa razy', desc: '2 bloki siłowe', target: 2, pts: 15, unit: '', val: a => a.sila },
+    rozc3: { name: 'Rozciąganie trzy razy', desc: '3 bloki rozciągania', target: 3, pts: 10, unit: '', val: a => a.rozc },
+    dni5: { name: 'Pięć dni', desc: '5 dni z blokami treningowymi', target: 5, pts: 15, unit: 'dni', val: a => a.days },
+    drogi: { name: 'Drogi', desc: routesT + ' dróg we wspinaniu', target: routesT, pts: 15, unit: 'dróg', val: a => a.routes },
+    plan: { name: 'Plan bez pomijania', desc: 'Wszystkie ' + planned.length + ' zaplanowane bloki zrobione', target: planned.length, pts: 20, unit: '', val: a => a.planDone }
+  };
+  const i = weekIndex(from), n = CH_POOL.length;
+  const ids = ['pelny', 'km', CH_POOL[((i % n) + n) % n], CH_POOL[(((i + 3) % n) + n) % n]];
+  if (!planned.length) ids[ids.indexOf('plan')] = ids.indexOf('dni5') < 0 ? 'dni5' : 'rozc3';
+  const acc = { runs: 0, climbs: 0, km: 0, longest: 0, palce: 0, sila: 0, rozc: 0, routes: 0, days: 0, planDone: 0 };
+  const out = ids.map(id => Object.assign({ id, value: 0, done: false, doneDay: null }, DEFS[id]));
+  const isPlanned = {};
+  planned.forEach(p => { isPlanned[p.d + '|' + p.k] = 1; });
+  for (let j = 0; j < 7; j++) {
+    const d = PL.addDays(from, j), day = wk.filter(x => x.d === d);
+    if (day.length) acc.days += 1;
+    day.forEach(x => {
+      const e = x.e;
+      if (e.t === 'bieg') { acc.runs++; acc.km += e.km || 0; acc.longest = Math.max(acc.longest, e.km || 0); }
+      if (e.t === 'wspin') { acc.climbs++; acc.routes += e.routes || 0; }
+      if (e.t === 'palce') acc.palce++;
+      if (e.t === 'sila') acc.sila++;
+      if (e.t === 'rozc') acc.rozc++;
+      if (isPlanned[d + '|' + x.k]) acc.planDone++;
+    });
+    out.forEach(c => {
+      c.value = Math.round(c.val(acc) * 10) / 10;
+      if (!c.done && c.target > 0 && c.value >= c.target) { c.done = true; c.doneDay = d; }
+    });
+  }
+  out.forEach(c => { delete c.val; });
+  return out;
+}
+
+// ---------- rekordy ----------
+const REC_DEFS = [
+  { id: 'km', name: 'Najdłuższy bieg' },
+  { id: 'tempo5', name: 'Najlepsze tempo od 5 km' },
+  { id: 'tempo10', name: 'Najlepsze tempo od 10 km' },
+  { id: 'tydzien', name: 'Najwięcej km w tygodniu' },
+  { id: 'grade', name: 'Najtrudniejsza droga' },
+  { id: 'drogi', name: 'Najwięcej dróg na jednym wspinaniu' }
+];
+function recText(id, v) {
+  if (id === 'km' || id === 'tydzien') return fmtKm(v) + ' km';
+  if (id === 'tempo5' || id === 'tempo10') { const p = Math.round(v); return Math.floor(p / 60) + ':' + pad(p % 60) + '/km'; }
+  if (id === 'grade') return GRADE_LIST[v];
+  return v + ' ' + (v === 1 ? 'droga' : v % 10 >= 2 && v % 10 <= 4 && (v % 100 < 12 || v % 100 > 14) ? 'drogi' : 'dróg');
+}
+// Rekordy z całego dziennika: aktualnie najlepsze wartości i zdarzenia „pobity rekord” (pierwsza wartość tylko ustawia poprzeczkę).
+function records(all) {
+  const best = {}, events = [];
+  const beat = (id, v, x, lower) => {
+    const b = best[id];
+    if (b && !(lower ? v < b.value - 1e-9 : v > b.value + 1e-9)) return;
+    if (b) events.push({ id, d: x.d, k: x.k, value: v, prev: b.value, text: recText(id, v), name: REC_DEFS.find(r => r.id === id).name, pts: REC_PTS });
+    best[id] = { value: v, d: x.d, k: x.k, text: recText(id, v) };
+  };
+  const weekKm = {};
+  let bestPrevWeek = 0, curW = null;
+  const awardedW = {};
+  all.forEach(x => {
+    const e = x.e;
+    const w = weekStart(x.d);
+    if (w !== curW) { if (curW) bestPrevWeek = Math.max(bestPrevWeek, weekKm[curW] || 0); curW = w; }
+    if (e.t === 'bieg' && e.km) {
+      beat('km', e.km, x, false);
+      if (e.sec && e.km >= 5) beat('tempo5', e.sec / e.km, x, true);
+      if (e.sec && e.km >= 10) beat('tempo10', e.sec / e.km, x, true);
+      weekKm[w] = Math.round(((weekKm[w] || 0) + e.km) * 100) / 100;
+      // tydzień: rekord, gdy suma tego tygodnia przebije najlepszy z poprzednich (raz na tydzień)
+      if (!best.tydzien || weekKm[w] > best.tydzien.value) {
+        if (best.tydzien && bestPrevWeek > 0 && weekKm[w] > bestPrevWeek && !awardedW[w]) {
+          awardedW[w] = 1;
+          events.push({ id: 'tydzien', d: x.d, k: x.k, value: weekKm[w], prev: bestPrevWeek, text: recText('tydzien', weekKm[w]), name: REC_DEFS[3].name, pts: REC_PTS });
+        }
+        best.tydzien = { value: weekKm[w], d: x.d, k: x.k, text: recText('tydzien', weekKm[w]) };
+      }
+    }
+    if (e.t === 'wspin') {
+      if (e.grade) beat('grade', GRADE_LIST.indexOf(e.grade), x, false);
+      if (e.routes) beat('drogi', e.routes, x, false);
+    }
+  });
+  return { best, events };
+}
+
 // ---------- czas, dystans, tempo ----------
 const pad = n => (n < 10 ? '0' : '') + n;
 function fmtDur(sec) {
@@ -258,7 +371,8 @@ const API = {
   TRACKS, TRACK_IDS, KINDS, PLACES, CLIMB_NOTE, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
-  logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm
+  logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
+  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

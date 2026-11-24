@@ -15,10 +15,33 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 | `rozc` | Rozciąganie | R | `--p1` | 6 |
 
 - +2 for rating effort (1–10) or shoulder pain (0–10) on the entry. An interrupted timed block earns half.
-- Full week: the first time a Monday–Sunday week has 3 runs and 3 climbs, +25 on that day (badge "Pełny tydzień").
+- Weekly challenges and personal records (below).
 - The day streak and its bonuses count every training day: rehab sessions and blocks.
-- Badges: first run, first climb, first finger session, full week, 50 km, 100 km, 10 climbs.
+- Badges: first run, first climb, first finger session, full week, 50 km, 100 km, 10 climbs, first challenge, 10 challenges, first record, 10 records.
 - Points are computed from the log in `PLAN.progress()` (which reads `BLOCKS.entries()`), never stored. The grade path on Postęp goes to 7c.
+
+## Weekly challenges (`BLOCKS.challenges(st, monday)`)
+
+Four per Monday–Sunday week, shown on Dziś (compact), Tydzień (for the week on screen) and Postęp; completed ones earn points on the day they're reached (`progress().chDone`), and appear in Dziennik.
+
+| Id | Challenge | Target | Points |
+|---|---|---|---|
+| `pelny` | Pełny tydzień (always) | 3 runs and 3 climbs | 25 |
+| `km` | Kilometry tygodnia (always) | average of the 4 weeks before + 10%, at least 10 km | 20 |
+| `dlugi` | Długi bieg | one run of the longest of the 4 weeks before + 1 km (8 to 21 km) | 15 |
+| `palce2` | Palce dwa razy | 2 finger sessions | 15 |
+| `sila2` | Siła dwa razy | 2 strength blocks | 15 |
+| `rozc3` | Rozciąganie trzy razy | 3 stretching blocks | 10 |
+| `dni5` | Pięć dni | 5 days with blocks | 15 |
+| `drogi` | Drogi | routes of the 4 weeks before + 10%, at least 15 | 15 |
+| `plan` | Plan bez pomijania | every planned block of the week done | 20 |
+
+- The two rotating ones come from `CH_POOL` by the week number counted from Monday 5 January 2026 (`i % 7` and `(i + 3) % 7`), so they change every week.
+- Targets come only from the 4 weeks before the week, so they don't move while the week runs. The +10% keeps the running volume growing at a safe rate.
+
+## Personal records (`BLOCKS.records(entries)`)
+
+Longest run, best pace on runs of 5+ km and of 10+ km, most km in a week, hardest grade, most routes in one session. The first value only sets the bar; each later improvement is an event worth +10 (`REC_PTS`) on its day (`progress().recordEvents`). A week-km record counts once per week. Postęp lists the current records; Dziennik shows each record on its day; the toast after saving and the player's done screen name new records and challenges.
 
 ## Kinds
 

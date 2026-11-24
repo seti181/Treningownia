@@ -45,6 +45,30 @@ function detail(e) {
 const minsOf = b => (b ? 'ok. ' + BL.blockMinutes(b) + ' min' : '');
 const ptsOf = b => (b ? TR[b.t].pts : 0);
 
+// ---------- wyzwania tygodnia i rekordy ----------
+function chValue(c) {
+  if (c.unit === 'km') return BL.fmtKm(c.value) + ' / ' + BL.fmtKm(c.target) + ' km';
+  return c.value + ' / ' + c.target + (c.unit ? ' ' + c.unit : '');
+}
+function challengesHTML(list, opts) {
+  const o = opts || {}, done = list.filter(c => c.done).length;
+  let h = `<section class="card ch${o.compact ? ' ch-c' : ''}" aria-label="Wyzwania tygodnia: ${done} z ${list.length}">`;
+  if (o.title) h += `<div class="ch-head"><h2 class="ch-t">${esc(o.title)}</h2><span class="ch-n">${done} z ${list.length}</span></div>`;
+  h += '<ul class="ch-list">' + list.map(c => `<li class="ch-i${c.done ? ' done' : ''}"><div class="ch-top"><b>${c.done ? ICON.check : ''}${esc(c.name)}</b><span class="ch-pts">${c.done ? '' : '+'}${c.pts} pkt</span></div>` +
+    `<p class="ch-d">${o.compact ? '' : esc(c.desc) + ' · '}${esc(chValue(c))}</p>${V.bar(c.target ? c.value / c.target : 0)}</li>`).join('') + '</ul>';
+  if (o.link) h += `<button type="button" class="linkish ch-link" data-act="tab" data-v="tydzien">Plan tygodnia</button>`;
+  return h + '</section>';
+}
+function recordsHTML(st, today) {
+  const r = BL.records(BL.entries(st));
+  const list = BL.REC_DEFS.filter(d => r.best[d.id]);
+  if (!list.length) return '<p class="empty">Rekordy pojawią się po pierwszych biegach z dystansem i czasem oraz wspinaniach z wyceną i liczbą dróg. Pobity rekord to +' + BL.REC_PTS + ' pkt.</p>';
+  return '<ul class="recs">' + list.map(d => {
+    const b = r.best[d.id];
+    return `<li class="card rec"><span class="rec-l">${esc(d.name)}</span><b class="rec-v">${esc(b.text)}</b><span class="rec-d">${esc(cap(relDay(b.d, today)))}</span></li>`;
+  }).join('') + '</ul><p class="w-note">Pobity rekord: +' + BL.REC_PTS + ' pkt. Pierwszy wynik ustawia poprzeczkę.</p>';
+}
+
 // ---------- Dziś ----------
 function todayBlocksHTML(st, today, prog) {
   const items = BL.dayView(st, today);
@@ -78,7 +102,8 @@ function todayBlocksHTML(st, today, prog) {
     }
     h += '</article>';
   });
-  return h + '</div>';
+  h += '</div>';
+  return h + challengesHTML(BL.challenges(st, BL.weekStart(today)), { compact: true, title: 'Wyzwania tygodnia', link: true });
 }
 
 // ---------- Tydzień ----------
@@ -95,8 +120,8 @@ function weekHTML(st, today, ui, prog) {
   h += `<div class="wk-nav"><button type="button" class="icon-btn" data-act="wk-prev" aria-label="Poprzedni tydzień">${ICON.left}</button>` +
     `<p class="wk-range" aria-live="polite"><b>${esc(weekRange(from))}</b>${rel ? '<small>' + rel + '</small>' : ''}</p>` +
     `<button type="button" class="icon-btn" data-act="wk-next" aria-label="Następny tydzień">${ICON.chev}</button></div>`;
-  h += `<div class="wk-sum card"><span>Biegi <b>${ws.runs}</b>/${BL.WEEK_RUNS}</span><span>Wspinanie <b>${ws.climbs}</b>/${BL.WEEK_CLIMBS}</span><span><b>${BL.fmtKm(ws.km)}</b> km</span>` +
-    `<span class="wk-bonus${ws.full ? ' got' : ''}">${ws.full ? ICON.check + 'Pełny tydzień +' + BL.WEEK_PTS + ' pkt' : 'Pełny tydzień: +' + BL.WEEK_PTS + ' pkt'}</span></div>`;
+  h += `<div class="wk-sum card"><span>Biegi <b>${ws.runs}</b>/${BL.WEEK_RUNS}</span><span>Wspinanie <b>${ws.climbs}</b>/${BL.WEEK_CLIMBS}</span><span><b>${BL.fmtKm(ws.km)}</b> km</span></div>`;
+  h += challengesHTML(BL.challenges(st, from), { title: 'Wyzwania tygodnia' });
   h += '<ol class="wk">';
   for (let i = 0; i < 7; i++) {
     const d = PL.addDays(from, i), isToday = d === today, past = d < today;
@@ -280,6 +305,6 @@ function editorHTML(st, ui) {
   return h;
 }
 
-Object.assign(V, { todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
+Object.assign(V, { challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
 if (typeof module !== 'undefined' && module.exports) module.exports = V;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,7 +19,7 @@
 | `core.js` | `window.ATLAS = { EX, render, view, evalAt, stillTime, prep }` | animation engine and the exercise list (docs/rehab.md) |
 | `ui.js` | nothing | atlas cards: about 30 fps, only visible cards, tap a card to pause it, global pause and ½× speed; skips drawing while `body.in-player` is set |
 | `plan.js` | `window.PLAN` | date helpers, rehab sessions and calendar, plan actions, points engine, weight helpers, `defaults()` |
-| `blocks.js` | `window.BLOCKS` | training blocks: tracks, catalogue, built-in blocks and week, day plan and changes, block log, points per entry, time and pace (docs/blocks.md) |
+| `blocks.js` | `window.BLOCKS` | training blocks: tracks, catalogue, built-in blocks and week, day plan and changes, block log, points per entry, weekly challenges, personal records, time and pace (docs/blocks.md) |
 | `store.js` | `window.STORE` | the storage key, `sanitize`, `merge`, `canon`, backup file (`backup`, `readBackup`) |
 | `views.js` | `window.VIEWS` | pure HTML builders: header chip, Dziś, Dziennik, Postęp, Więcej, Waga (with the chart SVG), Rehabilitacja, Ustawienia |
 | `blocks-views.js` | adds to `window.VIEWS` | block cards on Dziś, the Tydzień planner, the log form, the library with Mój tydzień, the block editor |
@@ -108,7 +108,7 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 | `tests/check.js` | `check(name, cond, extra)` prints ok/FAIL and sets exit code 1; `finish(errors)`; `built()`; `ignorable()` for blocked-font errors; `KEY`; `go(page, name)` opens a tab or a page under Więcej |
 | `tests/test-plan.js` | Node only: weekly pattern and session lengths per phase, yellow and red mornings, the Today panel HTML |
 | `tests/test-store.js` | Node only: sanitize, merge between two devices, deletion markers, history wipe, the backup file round trip |
-| `tests/test-blocks-logic.js` | Node only: default week, no pulling in built-ins, move/skip/add/remove, pattern changes, logging, points and the full-week bonus, time and km parsing, editing/copying/resetting blocks, sanitize and merge of the block keys |
+| `tests/test-blocks-logic.js` | Node only: default week, no pulling in built-ins, move/skip/add/remove, pattern changes, logging, points and the full-week bonus, challenge targets and rotation, records, time and km parsing, editing/copying/resetting blocks, sanitize and merge of the block keys |
 | `tests/test-sync.js` | a fake Firebase (Auth and Firestore REST) and two devices: login errors, first write, reading on a second device, a write conflict, an expired token, offline and back, no write loops, logout, a revoked session, backup to file and import on a third device |
 | `tests/test-offline.js` | the page opened as a file with a hanging network: renders, a full session, saves, reopens |
 | `tests/test-pwa.js` | served on localhost: manifest and icons, the service worker takes control, then with the server stopped and the browser offline the app still loads and saves |

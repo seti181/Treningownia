@@ -233,6 +233,14 @@ function toast(text) {
   toastTimer = setTimeout(() => { t.classList.remove('show'); setTimeout(() => { t.hidden = true; }, 300); }, 2800);
 }
 function newBadges(before, after) { return after.badges.filter((b, i) => b.d && !before.badges[i].d); }
+// Nowe wyzwania i rekordy między dwoma stanami postępu (do komunikatów po zapisie).
+function newWins(before, after) {
+  const ch = {}, rec = {};
+  (before.chDone || []).forEach(c => { ch[c.week + c.id] = 1; });
+  (before.recordEvents || []).forEach(r => { rec[r.id + r.d + r.k] = 1; });
+  return { ch: (after.chDone || []).filter(c => !ch[c.week + c.id]), rec: (after.recordEvents || []).filter(r => !rec[r.id + r.d + r.k]) };
+}
+function winsText(w) { return w.ch.map(c => ' · wyzwanie: ' + c.name).concat(w.rec.map(r => ' · rekord: ' + r.name.toLowerCase() + ' ' + r.text)).join(''); }
 function withGain(fn, label) {
   const before = PL.progress(state, today());
   fn();
@@ -546,7 +554,7 @@ function saveLog() {
   commit();
   const gain = prog.total - before.total;
   const nb = newBadges(before, prog);
-  toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + (prog.grade.i > before.grade.i ? ' · nowy poziom ' + prog.grade.name : '') + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
+  toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + winsText(newWins(before, prog)) + (prog.grade.i > before.grade.i ? ' · nowy poziom ' + prog.grade.name : '') + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
   showTab(back, { scroll: false });
 }
 function openEditor(draft) {
@@ -1174,7 +1182,10 @@ function paintGain() {
     const base = entryPts(Object.assign({}, e, { pain: null, rpe: null }));
     lines.push([e.partial ? 'Przerwany trening (połowa)' : P.session.blockKey ? P.session.title : 'Sesja', '+' + base]);
     lines.push(e.pain != null ? ['Ocena bólu', '+' + rate] : ['Oceń ból poniżej', '+' + rate + ' do zdobycia']);
-    const other = gain - base - (e.pain != null ? rate : 0);
+    let other = gain - base - (e.pain != null ? rate : 0);
+    const w = newWins(before, after);
+    w.ch.forEach(c => { lines.push(['Wyzwanie: ' + c.name, '+' + c.pts]); other -= c.pts; });
+    w.rec.forEach(r => { lines.push(['Rekord: ' + r.name.toLowerCase(), '+' + r.pts]); other -= r.pts; });
     if (other > 0) {
       const nb = newBadges(before, after).map(b => b.id);
       const label = nb.indexOf('tydzien') >= 0 ? 'Pełny tydzień' : nb.indexOf('powrot') >= 0 ? 'Powrót po przerwie' : PL.STREAK.some(x => x[0] === after.streak) ? after.streak + ' dni z rzędu' : 'Bonus';

@@ -319,7 +319,11 @@ const BADGES = [
   { id: 'tydzien', name: 'Pełny tydzień', desc: '3 biegi i 3 wspinania w jednym tygodniu' },
   { id: 'km50', name: '50 km', desc: 'Pięćdziesiąt kilometrów biegu' },
   { id: 'km100', name: '100 km', desc: 'Sto kilometrów biegu' },
-  { id: 'wspin10', name: '10 wspinaczek', desc: 'Dziesięć zapisanych wspinań' }
+  { id: 'wspin10', name: '10 wspinaczek', desc: 'Dziesięć zapisanych wspinań' },
+  { id: 'wyzwanie1', name: 'Pierwsze wyzwanie', desc: 'Pierwsze zaliczone wyzwanie tygodnia' },
+  { id: 'wyzwania10', name: '10 wyzwań', desc: 'Dziesięć zaliczonych wyzwań tygodnia' },
+  { id: 'rekord1', name: 'Nowy rekord', desc: 'Pierwszy pobity rekord' },
+  { id: 'rekord10', name: '10 rekordów', desc: 'Dziesięć pobitych rekordów' }
 ];
 function entryPoints(sid, e) {
   let p = SPTS[sid] || 10;
@@ -365,10 +369,7 @@ function progress(st, today) {
       }
       if (x.e.t === 'wspin') { climbs += 1; if (climbs === 1) award('wspin1', d); if (climbs === 10) award('wspin10', d); }
       if (x.e.t === 'palce') { fingers += 1; if (fingers === 1) award('palce1', d); }
-      const w = BL.weekStart(d), wk = weeks[w] = weeks[w] || { r: 0, c: 0, got: false };
-      if (x.e.t === 'bieg') wk.r++;
-      if (x.e.t === 'wspin') wk.c++;
-      if (!wk.got && wk.r >= BL.WEEK_RUNS && wk.c >= BL.WEEK_CLIMBS) { wk.got = true; fullWeeks += 1; addDay(d, BL.WEEK_PTS); byEntry[d + '|week'] = BL.WEEK_PTS; award('tydzien', d); }
+      weeks[BL.weekStart(d)] = 1;
     });
     Object.keys(l).sort().forEach(sid => {
       const e = l[sid];
@@ -394,6 +395,20 @@ function progress(st, today) {
     if (run === 30) award('dni30', d);
     prev = d;
   });
+  // wyzwania tygodnia i rekordy (punkty w dniu zaliczenia)
+  const chDone = [], recordEvents = BL ? BL.records(bent).events : [];
+  if (BL) Object.keys(weeks).sort().forEach(w => BL.challenges(st, w, bent).forEach(c => { if (c.done) chDone.push({ id: c.id, name: c.name, d: c.doneDay, pts: c.pts, week: w }); }));
+  chDone.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)).forEach((c, i) => {
+    addDay(c.d, c.pts); byEntry[c.d + '|ch:' + c.id] = (byEntry[c.d + '|ch:' + c.id] || 0) + c.pts;
+    if (i === 0) award('wyzwanie1', c.d);
+    if (i === 9) award('wyzwania10', c.d);
+    if (c.id === 'pelny') { fullWeeks += 1; award('tydzien', c.d); }
+  });
+  recordEvents.forEach((r, i) => {
+    addDay(r.d, r.pts); byEntry[r.d + '|rec:' + r.id + ':' + r.k] = r.pts;
+    if (i === 0) award('rekord1', r.d);
+    if (i === 9) award('rekord10', r.d);
+  });
   const mDays = Object.keys(st.morning).sort();
   mDays.forEach((d, i) => { addDay(d, MORNING_PTS); if (i === 6) award('poranek', d); });
   const seenP = {}, seenR = {};
@@ -405,7 +420,7 @@ function progress(st, today) {
   const alive = last && today && diff(last, today) <= 1;
   return {
     total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best,
-    blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks,
+    blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks, chDone, recordEvents,
     badges: BADGES.map(b => Object.assign({}, b, { d: earned[b.id] || null })), byEntry, byDay
   };
 }
