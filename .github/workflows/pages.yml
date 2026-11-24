@@ -34,12 +34,11 @@ jobs:
       - name: Test
         run: npm test
 
-  deploy:
+  # Build and upload in one job, publish in the next: deploying in the same job as the upload
+  # sometimes failed with "No artifacts named github-pages were found".
+  build:
     needs: test
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -54,6 +53,14 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v5

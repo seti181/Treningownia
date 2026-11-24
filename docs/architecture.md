@@ -120,5 +120,5 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 - Sync tests set `window.__TEST_FIREBASE = { apiKey, projectId }` before the page loads, and answer the Google endpoints with `context.route`. The page clock doesn't move network replies, so they advance the clock in small steps with short real pauses (`settle()`).
 - Use `reducedMotion: 'reduce'` for full sessions; animation frames make fast-forwarding slow.
 - Screenshots go to `shots/` (not in git). After a UI change, open them and look for label collisions, overflow and dark-mode problems. Tab highlights caught half-faded are the CSS transition, not a bug.
-- CI: .github/workflows/pages.yml runs `npm ci`, installs Chromium and runs `npm test` on every push; the deploy only runs when the tests pass.
+- CI: .github/workflows/pages.yml runs `npm ci`, installs Chromium and runs `npm test` on every push; then a build job uploads `dist/web` and a separate deploy job publishes it (deploying in the same job as the upload sometimes failed with "No artifacts named github-pages").
 - Not covered by automated tests: real phones (beeps, Polish voice, vibration, wake lock, installing), iPhone Safari, and the real Firebase project.
