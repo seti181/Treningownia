@@ -453,6 +453,15 @@ function blockAction(act, b, t) {
     case 'pat-open': ui.patAdd = +b.dataset.v >= 0 && ui.patAdd !== +b.dataset.v ? +b.dataset.v : -1; renderPanel('bloki'); if (ui.patAdd >= 0) focusIn('[data-act="pat-add"][data-v="' + ui.patAdd + '"]'); return true;
     case 'pat-add': { const dw = +b.dataset.v, list = (BL.pattern(state)[dw] || []).concat([b.dataset.s]); BL.setPattern(state, dw, list, now()); ui.patAdd = -1; commit(); focusIn('[data-act="pat-open"][data-v="' + dw + '"]'); return true; }
     case 'pat-reset': state.week = null; state.weekAt = now(); commit(); toast('Tydzień startowy przywrócony'); return true;
+    // propozycje zwiększeń
+    case 'pr-ok': case 'pr-no': {
+      const p = BL.proposals(state, t).find(x => x.id === b.dataset.v);
+      if (!p) return true;
+      if (act === 'pr-ok') BL.applyProposal(state, p, t, now()); else BL.decide(state, p, 'no', t, now());
+      commit();
+      toast(act === 'pr-ok' ? 'Przyjęte: ' + p.title : 'Wróci za tydzień');
+      return true;
+    }
     // biblioteka
     case 'bl-edit': { const bl = BL.getBlock(state, b.dataset.v); if (bl) openEditor(JSON.parse(JSON.stringify(bl))); return true; }
     case 'bl-copy': { const id = BL.copyBlock(state, b.dataset.v, now()); commit(); toast('Skopiowane: ' + BL.getBlock(state, id).name); focusIn('[data-act="bl-edit"][data-v="' + id + '"]'); return true; }
@@ -720,6 +729,15 @@ document.addEventListener('change', e => {
   else if (n.name === 'snd') setMode(n.value);
   else if (n.id === 'w-add-date') { ui.wDate = n.value; paintAddHint(); }
   else if (n.id === 'bk-file') readBackupFile(n.files && n.files[0]);
+  else if (n.id === 'cy-build' || n.id === 'cy-rec' || n.id === 'cy-start') {
+    const c = Object.assign({ start: BL.weekStart(today()), build: 3, recover: 1 }, state.cycle || {});
+    if (n.id === 'cy-build') { const v = +n.value; if (!v) { state.cycle = null; } else { c.build = v; state.cycle = c; } }
+    else if (n.id === 'cy-rec') { c.recover = +n.value; state.cycle = c; }
+    else if (DATE.test(n.value)) { c.start = BL.weekStart(n.value); state.cycle = c; }
+    state.cycleAt = now();
+    commit();
+    toast(state.cycle ? 'Cykl: ' + state.cycle.build + ' tyg. budowania + ' + state.cycle.recover + ' tyg. odciążenia' : 'Bez cyklu');
+  }
   else if (n.id === 'lv-climb' || n.id === 'lv-run') {
     if (n.id === 'lv-climb') state.climbBase = n.value; else state.runBase = +n.value;
     state.levelsAt = now();

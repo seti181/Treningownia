@@ -104,6 +104,37 @@ check('starting level: climbing from 6b', PL.progress(lv, '2026-11-25').climb.na
 const lv2 = S.merge(S.sanitize(JSON.parse(JSON.stringify(lv)), MON), S.sanitize({}, MON));
 check('starting levels sync with the later change', lv2.climbBase === '6b');
 
+// cykl i propozycje
+const cy = PL.defaults(MON), cg = id => BL.getBlock(cy, id);
+check('cycle: 3 weeks build, then 1 recovery, repeating', BL.phaseOf(cy, '2026-11-25').kind === 'budowa' && BL.phaseOf(cy, '2026-12-08').week === 3 && BL.phaseOf(cy, '2026-12-16').kind === 'odciazenie' && BL.phaseOf(cy, '2026-12-21').kind === 'budowa');
+BL.logBlock(cy, MON, 'a1', cg('palce-20'), { rpe: 5, pain: 0 }, at(1));
+check('no proposal after one easy finger session', !BL.proposals(cy, MON).some(p => /^palce/.test(p.id)));
+BL.logBlock(cy, '2026-11-25', 'a2', cg('palce-20'), { rpe: 6 }, at(2));
+let pp = BL.proposals(cy, '2026-11-25').find(p => /^palce/.test(p.id));
+check('two easy finger sessions: +2 s per hang', pp && pp.edit.hold === 12, pp && pp.text);
+BL.decide(cy, pp, 'no', '2026-11-25', at(3));
+check('declined: hidden for 7 days, back after', !BL.proposals(cy, '2026-11-27').some(p => p.id === pp.id) && BL.proposals(cy, '2026-12-02').some(p => p.id === pp.id));
+BL.applyProposal(cy, pp, '2026-12-02', at(4));
+check('accepted: the block changes, no new proposal until 2 more sessions', cg('palce-20').items[1].hold === 12 && BL.isEdited(cy, 'palce-20') && !BL.proposals(cy, '2026-12-02').some(p => /^palce/.test(p.id)));
+BL.logBlock(cy, '2026-12-03', 'a3', cg('palce-20'), { rpe: 5 }, at(5)); BL.logBlock(cy, '2026-12-04', 'a4', cg('palce-20'), { rpe: 5 }, at(6));
+check('next step after two more easy sessions: 14 s', (BL.proposals(cy, '2026-12-04').find(p => /^palce/.test(p.id)) || {}).edit.hold === 14);
+const hard = PL.defaults(MON);
+BL.logBlock(hard, MON, 'h1', BL.getBlock(hard, 'sila-pompki'), { rpe: 5 }, at(1)); BL.logBlock(hard, '2026-11-24', 'h2', BL.getBlock(hard, 'sila-pompki'), { rpe: 5, pain: 4 }, at(2));
+check('shoulder pain 4: no increases', BL.shoulderAlarm(hard, '2026-11-25') && !BL.proposals(hard, '2026-11-25').length);
+const sp = PL.defaults(MON);
+BL.logBlock(sp, MON, 's1', BL.getBlock(sp, 'sila-pompki'), { rpe: 6 }, at(1)); BL.logBlock(sp, '2026-11-24', 's2', BL.getBlock(sp, 'sila-pompki'), { rpe: 4 }, at(2));
+const sprop = BL.proposals(sp, '2026-11-25').find(p => /^sila/.test(p.id));
+check('push-ups: +1 rep per set', sprop && sprop.edit.items[1].reps === '11–13' && sprop.edit.items[2].reps === '13', sprop && JSON.stringify(sprop.edit.items.map(x => x.reps)));
+check('recovery week: no proposals, km target at 60%', !BL.proposals(cy, '2026-12-16').length && /odciążenia/.test(BL.challenges(cy, '2026-12-14')[1].desc));
+const tr = PL.defaults(MON);
+for (let i = 0; i < 6; i++) BL.logBlock(tr, PL.addDays(MON, i), 'r' + i, BL.getBlock(tr, 'bieg-spokojny'), { km: 6, sec: 2300, rpe: 3 }, at(10 + i));
+const tp = BL.proposals(tr, '2026-11-28').find(p => /^test/.test(p.id));
+check('after 6 runs: plan the 5 km test on the next easy-run day', tp && tp.plan.d === '2026-11-30', tp && tp.text);
+BL.applyProposal(tr, tp, '2026-11-28', at(20));
+check('accepted: the test replaces that easy run', names(tr, '2026-11-30') === 'rozc-bieg,bieg-test5');
+const cs = S.sanitize(JSON.parse(JSON.stringify(cy)), MON);
+check('cycle and decisions survive sanitize and merge', cs.cycle.build === 3 && Object.keys(cs.props).length === 1 && Object.keys(S.merge(S.sanitize({}, MON), cs).props).length === 1);
+
 // biblioteka: edycja wbudowanego, kopia, własny blok, usunięcie
 const ed = JSON.parse(JSON.stringify(g('palce-20'))); ed.items[1].sets = 5;
 BL.saveBlock(st, ed, at(20));

@@ -547,6 +547,7 @@ function journalHTML(st, today, prog, ui) {
   if (BLK()) BLK().entries(st).forEach(x => { add(x.d).b.push(x); });
   PL.weightEntries(st).forEach(x => { add(x.d).w = x.kg; });
   Object.keys(st.morning).forEach(d => { add(d).m = st.morning[d]; });
+  Object.keys(st.props || {}).forEach(id => { if (st.props[id].s === 'ok') add(st.props[id].d); });
   const list = Object.keys(days).filter(d => d <= today).sort().reverse();
   h += '<h2 class="sub-h">Wpisy</h2>';
   if (!list.length) return h + '<p class="empty">Tu pojawi się każdy trening, poranna ocena barku i pomiar wagi, dzień po dniu.</p>';
@@ -567,6 +568,7 @@ function journalHTML(st, today, prog, ui) {
       li += `<li class="jr-b" style="--c:var(${T.c})"><span class="h-s">${esc(r.e.name)} <small>${esc(T.name)}</small></span>${det ? `<span class="h-x">${esc(det)}</span>` : ''}<span class="h-pts">+${prog.byEntry[d + '|b:' + r.k] || 0}</span>` +
         `<button type="button" class="icon-btn h-ed" data-act="b-log" data-d="${d}" data-k="${esc(r.k)}" aria-label="Popraw wpis: ${esc(r.e.name)}">${ICON.chev}</button>${r.e.note ? `<span class="h-n">${esc(r.e.note)}</span>` : ''}</li>`;
     });
+    Object.keys(st.props || {}).filter(id => st.props[id].s === 'ok' && st.props[id].d === d).forEach(id => { li += `<li class="jr-win"><span class="h-s">Zmiana planu</span><span class="h-x">${esc(st.props[id].text)}</span></li>`; });
     (prog.chDone || []).filter(c => c.d === d).forEach(c => { li += `<li class="jr-win"><span class="h-s">Wyzwanie: ${esc(c.name)}</span><span class="h-pts">+${c.pts}</span></li>`; });
     (prog.recordEvents || []).filter(r => r.d === d).forEach(r => { li += `<li class="jr-win"><span class="h-s">Rekord: ${esc(r.name)}</span><span class="h-x">${esc(r.text)}</span><span class="h-pts">+${r.pts}</span></li>`; });
     if (x.w != null) li += `<li><span class="h-s">Waga</span><span class="h-w">${kg1(x.w)} kg</span></li>`;

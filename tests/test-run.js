@@ -68,6 +68,34 @@ const errors = [];
   ok('3 library: interval block shows its pace now', /Tempo interwałowe: 4:51–5:03\/km/.test(await txt('#bloki-in')));
   await page.screenshot({ path: OUT + 'r-04-bloki.png', fullPage: true });
   await ctx.close();
+
+  // 4) propozycje i cykl: dwa lekkie treningi palców -> karta na Dziś, przyjęcie zmienia blok
+  {
+    const c2 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    const p = await c2.newPage();
+    p.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    await p.clock.install({ time: new Date(2026, 10, 27, 8, 0) });
+    await p.addInitScript(k => {
+      const e = (b, at, x) => Object.assign({ b, t: 'palce', kind: 'timed', name: 'Zwisy na palcach 20 mm', done: true, at, dur: 900 }, x);
+      localStorage.setItem(k, JSON.stringify({ start: '2026-11-23', updated: 5, cycle: { start: '2026-11-23', build: 3, recover: 1 },
+        blog: { '2026-11-24': { 'p0-palce-20': e('palce-20', 1, { rpe: 5, pain: 0 }) }, '2026-11-26': { x1: e('palce-20', 2, { rpe: 6 }) } } }));
+    }, KEY);
+    await p.goto(APP); await p.clock.runFor(300);
+    const t2 = async q => ((await p.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    check('4 Dziś shows the phase and a proposal', /Budowanie · tydzień 1 z 3/.test(await t2('#dzis-in .phase-line')) && /Zwisy 12 s zamiast 10 s/.test(await t2('#dzis-in .props')), await t2('#dzis-in .props'));
+    await p.screenshot({ path: OUT + 'r-05-proposal.png' });
+    await p.click('[data-act="pr-ok"]'); await p.clock.runFor(200);
+    const s2 = await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+    check('4 accepted: the hang is 12 s, the card is gone', s2.blocks['palce-20'].items[1].hold === 12 && !(await p.isVisible('#dzis-in .props')));
+    await go(p, 'dziennik');
+    check('4 the change is in the journal', /Zmiana planu/.test(await t2('#dziennik-in .jr-day >> nth=0')));
+    await go(p, 'bloki');
+    await p.selectOption('#cy-build', '4'); await p.clock.runFor(200);
+    const s3 = await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+    check('4 cycle changed to 4 weeks of build', s3.cycle.build === 4 && /tydzień 1 z 4/.test(await t2('#cykl')));
+    await p.locator('#cykl').screenshot({ path: OUT + 'r-06-cycle.png' });
+    await c2.close();
+  }
   await b.close();
   finish(errors);
 })();

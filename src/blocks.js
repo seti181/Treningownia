@@ -259,7 +259,8 @@ function challenges(st, from, all) {
   const wk = all.filter(x => x.d >= from && x.d <= to);
   let kmPrev = 0, longPrev = 0, routesPrev = 0;
   prev.forEach(x => { if (x.e.t === 'bieg') { kmPrev += x.e.km || 0; longPrev = Math.max(longPrev, x.e.km || 0); } if (x.e.t === 'wspin') routesPrev += x.e.routes || 0; });
-  const kmT = Math.max(10, ceil1(kmPrev / 4 * 1.1));
+  const recovery = isRecovery(st, from);
+  const kmT = recovery ? Math.max(6, ceil1(kmPrev / 4 * 0.6)) : Math.max(10, ceil1(kmPrev / 4 * 1.1));
   const longT = Math.min(21, Math.max(8, Math.floor(longPrev) + 1));
   const routesT = Math.max(15, ceil1(routesPrev / 4 * 1.1));
   // zaplanowane bloki tygodnia (dla „bez pomijania”)
@@ -267,7 +268,7 @@ function challenges(st, from, all) {
   for (let i = 0; i < 7; i++) { const d = PL.addDays(from, i); dayItems(st, d).forEach(x => planned.push({ d, k: x.k })); }
   const DEFS = {
     pelny: { name: 'Pełny tydzień', desc: WEEK_RUNS + ' biegi i ' + WEEK_CLIMBS + ' wspinania', target: WEEK_RUNS + WEEK_CLIMBS, pts: WEEK_PTS, unit: '', val: a => Math.min(a.runs, WEEK_RUNS) + Math.min(a.climbs, WEEK_CLIMBS) },
-    km: { name: 'Kilometry tygodnia', desc: 'Przebiegnij ' + kmT + ' km', target: kmT, pts: 20, unit: 'km', val: a => a.km },
+    km: { name: recovery ? 'Kilometry na luzie' : 'Kilometry tygodnia', desc: 'Przebiegnij ' + kmT + ' km' + (recovery ? ' (tydzień odciążenia)' : ''), target: kmT, pts: 20, unit: 'km', val: a => a.km },
     dlugi: { name: 'Długi bieg', desc: 'Jeden bieg co najmniej ' + longT + ' km', target: longT, pts: 15, unit: 'km', val: a => a.longest },
     palce2: { name: 'Palce dwa razy', desc: '2 treningi palców', target: 2, pts: 15, unit: '', val: a => a.palce },
     sila2: { name: 'Siła dwa razy', desc: '2 bloki siłowe', target: 2, pts: 15, unit: '', val: a => a.sila },
@@ -279,6 +280,7 @@ function challenges(st, from, all) {
   const i = weekIndex(from), n = CH_POOL.length;
   const ids = ['pelny', 'km', CH_POOL[((i % n) + n) % n], CH_POOL[(((i + 3) % n) + n) % n]];
   if (!planned.length) ids[ids.indexOf('plan')] = ids.indexOf('dni5') < 0 ? 'dni5' : 'rozc3';
+  if (recovery && ids.indexOf('dlugi') >= 0) ids[ids.indexOf('dlugi')] = ids.indexOf('rozc3') < 0 ? 'rozc3' : 'dni5';
   const acc = { runs: 0, climbs: 0, km: 0, longest: 0, palce: 0, sila: 0, rozc: 0, routes: 0, days: 0, planDone: 0 };
   const out = ids.map(id => Object.assign({ id, value: 0, done: false, doneDay: null }, DEFS[id]));
   const isPlanned = {};
@@ -383,6 +385,95 @@ function runForm(st, today) {
   return best;
 }
 
+// ---------- cykl: budowanie i odciążenie ----------
+// cycle = { start: poniedziałek, build: tygodnie budowania, recover: tygodnie odciążenia }. Bez cyklu: zawsze budowanie.
+function phaseOf(st, d) {
+  const c = st.cycle;
+  if (!c || !c.start || !(c.build > 0)) return null;
+  const w = Math.floor(PL.diff(weekStart(c.start), weekStart(d)) / 7);
+  if (w < 0) return null;
+  const len = c.build + (c.recover || 0), pos = w % len;
+  return pos < c.build ? { kind: 'budowa', name: 'Budowanie', week: pos + 1, of: c.build } : { kind: 'odciazenie', name: 'Odciążenie', week: pos - c.build + 1, of: c.recover };
+}
+const isRecovery = (st, d) => { const p = phaseOf(st, d); return !!p && p.kind === 'odciazenie'; };
+
+// ---------- propozycje zwiększeń ----------
+// Nigdy nic nie zmienia samo: propozycja to karta z „Przyjmij” / „Nie teraz”. Odrzucona wraca po 7 dniach.
+function shoulderAlarm(st, today) {
+  const from = PL.addDays(today, -6);
+  const pain = entries(st).some(x => x.d >= from && x.d <= today && x.e.pain >= 4);
+  const red = Object.keys(st.morning || {}).some(d => d >= from && d <= today && st.morning[d] === 'red');
+  return pain || red;
+}
+function lastOf(st, id, n, since) {
+  return entries(st).filter(x => x.e.b === id && (x.e.at || 0) > (since || 0) && !x.e.partial).slice(-n);
+}
+const easy = (xs, rpe, n) => xs.length >= n && xs.every(x => x.e.rpe != null && x.e.rpe <= rpe && (x.e.pain == null || x.e.pain <= 2));
+const bumpReps = r => String(r).replace(/\d+/g, n => String(+n + 1));
+function proposals(st, today) {
+  const out = [];
+  if (isRecovery(st, today)) return out;
+  const decided = id => { const p = st.props && st.props[id]; return p && !p.del && (p.s === 'ok' || PL.diff(p.d, today) < 7); };
+  const add = p => { if (!decided(p.id)) out.push(p); };
+  const alarm = shoulderAlarm(st, today);
+  allBlocks(st).forEach(b => {
+    if (alarm) return;
+    const since = isEdited(st, b.id) || !isBuiltin(b.id) ? (b.at || 0) : 0;
+    if (b.kind === 'timed' && b.t === 'palce') {
+      const it = (b.items || []).findIndex(x => /^zwis-/.test(x.ex) && x.kind === 'hold');
+      if (it < 0 || !easy(lastOf(st, b.id, 2, since), 6, 2)) return;
+      const x = b.items[it];
+      if (x.hold < 15) add({ id: 'palce:' + b.id + ':' + x.ex + ':' + x.hold, block: b.id, title: b.name, text: 'Zwisy ' + Math.min(15, x.hold + 2) + ' s zamiast ' + x.hold + ' s. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, hold: Math.min(15, x.hold + 2) } });
+      else if (x.ex === 'zwis-20') add({ id: 'palce:' + b.id + ':15mm', block: b.id, title: b.name, text: 'Czas na listwę 15 mm: zaczynasz od 10 s na zwis.', edit: { item: it, ex: 'zwis-15', hold: 10, name: b.name.replace('20 mm', '15 mm') } });
+    } else if (b.kind === 'timed' && b.t === 'sila') {
+      if (!easy(lastOf(st, b.id, 2, since), 6, 2)) return;
+      const items = (b.items || []).map(x => (x.kind === 'reps' ? Object.assign({}, x, { reps: bumpReps(x.reps) }) : x.kind === 'hold' ? Object.assign({}, x, { hold: Math.min(60, x.hold + 5) }) : x));
+      const sig = (b.items || []).map(x => x.reps || x.hold || '').join('/');
+      add({ id: 'sila:' + b.id + ':' + sig, block: b.id, title: b.name, text: '+1 powtórzenie w każdej serii i +5 s w trzymaniu. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { items } });
+    } else if (b.kind === 'run' && b.zone === 'easy' && b.items && b.items.length === 1 && b.items[0].kind === 'time') {
+      const long = b.items[0].dur >= 50 * 60, cap = long ? 120 * 60 : 60 * 60;
+      const xs = lastOf(st, b.id, long ? 1 : 2, since);
+      if (!easy(xs, long ? 5 : 4, long ? 1 : 2) || b.items[0].dur >= cap) return;
+      const dur = Math.min(cap, b.items[0].dur + 300);
+      add({ id: 'bieg:' + b.id + ':' + dur, block: b.id, title: b.name, text: (long ? 'Długi bieg' : 'Spokojny bieg') + ' ' + Math.round(dur / 60) + ' min zamiast ' + Math.round(b.items[0].dur / 60) + ' min (+5 min, objętość rośnie najwyżej o 10% tygodniowo).', edit: { item: 0, dur, min: Math.round(dur / 60) } });
+    }
+  });
+  // test 5 km: po 6 biegach, gdy nie było testu od 8 tygodni; zastępuje najbliższy spokojny bieg od poniedziałku
+  const runs = entries(st).filter(x => x.e.t === 'bieg');
+  const lastTest = runs.filter(x => x.e.b === 'bieg-test5').slice(-1)[0];
+  if (runs.length >= 6 && (!lastTest || PL.diff(lastTest.d, today) > 56)) {
+    let from = weekStart(today);
+    if (from <= today) from = PL.addDays(from, 7);
+    for (let i = 0; i < 14; i++) {
+      const d = PL.addDays(from, i), it = dayItems(st, d).find(x => x.b === 'bieg-spokojny' && !x.skip);
+      if (it) { add({ id: 'test:' + weekStart(d), block: 'bieg-test5', title: 'Test 5 km', text: 'Zaplanuj test 5 km na ' + PL.longDate(d) + ' zamiast spokojnego biegu. Z wyniku policzę tempa treningowe.', plan: { d, k: it.k } }); break; }
+    }
+  }
+  return out;
+}
+// Przyjęcie propozycji: zmienia blok (jak w edytorze) albo plan dnia i zapisuje decyzję w props.
+function applyProposal(st, p, today, now) {
+  if (p.edit) {
+    const b = clone(getBlock(st, p.block));
+    if (p.edit.items) b.items = clone(p.edit.items);
+    if (p.edit.item != null) {
+      const x = b.items[p.edit.item];
+      if (p.edit.hold != null) x.hold = p.edit.hold;
+      if (p.edit.ex) x.ex = p.edit.ex;
+      if (p.edit.dur != null) x.dur = p.edit.dur;
+    }
+    if (p.edit.min != null) b.min = p.edit.min;
+    if (p.edit.name) b.name = p.edit.name;
+    saveBlock(st, b, now);
+  }
+  if (p.plan) {
+    removeItem(st, p.plan.d, p.plan.k, now);
+    addItem(st, p.plan.d, p.block, now);
+  }
+  decide(st, p, 'ok', today, now);
+}
+function decide(st, p, s, today, now) { st.props = st.props || {}; st.props[p.id] = { s, d: today, at: now || Date.now(), text: (p.title + ': ' + p.text).slice(0, 200) }; }
+
 // ---------- tempa treningowe ----------
 // Z ostatniego testu 5 km (blok bieg-test5, od 4,9 km, z czasem, w ostatnich 120 dniach). Strefy jako mnożniki tempa testu.
 const ZONES = {
@@ -444,7 +535,8 @@ const API = {
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
-  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM, ZONES, paces, paceText, fmtPace
+  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM, ZONES, paces, paceText, fmtPace,
+  phaseOf, isRecovery, shoulderAlarm, proposals, applyProposal, decide
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

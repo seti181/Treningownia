@@ -95,6 +95,9 @@ function mergeBlocks(out, other) {
   }));
   if ((other.weekAt || 0) > (out.weekAt || 0)) { out.week = other.week ? clone(other.week) : null; out.weekAt = other.weekAt; }
   if ((other.levelsAt || 0) > (out.levelsAt || 0)) { out.climbBase = other.climbBase; out.runBase = other.runBase; out.levelsAt = other.levelsAt; }
+  if ((other.cycleAt || 0) > (out.cycleAt || 0)) { out.cycle = other.cycle ? clone(other.cycle) : null; out.cycleAt = other.cycleAt; }
+  out.props = out.props || {};
+  Object.keys(other.props || {}).forEach(id => { const x = other.props[id], y = out.props[id]; if (!y || at(x) > at(y)) out.props[id] = clone(x); });
   return out;
 }
 
@@ -150,6 +153,16 @@ function sanitize(o, fallbackDay) {
   d.weightGoalAt = +o.weightGoalAt || 0;
   sanitizeBlocks(o, d);
   if (PL.GRADES.some(g => g[0] === o.climbBase)) d.climbBase = o.climbBase;
+  if (isObj(o.cycle) && typeof o.cycle.start === 'string' && DATE.test(o.cycle.start)) {
+    d.cycle = { start: o.cycle.start, build: num(o.cycle.build, 1, 8) ? Math.round(o.cycle.build) : 3, recover: num(o.cycle.recover, 0, 3) ? Math.round(o.cycle.recover) : 1 };
+  } else if (o.cycle === null) d.cycle = null;
+  d.cycleAt = +o.cycleAt || 0;
+  if (isObj(o.props)) Object.keys(o.props).slice(0, 500).forEach(id => {
+    const p = o.props[id];
+    if (typeof id !== 'string' || id.length > 80 || !isObj(p)) return;
+    if (p.del) { d.props[id] = { del: true, at: at(p) }; return; }
+    if ((p.s === 'ok' || p.s === 'no') && typeof p.d === 'string' && DATE.test(p.d)) d.props[id] = { s: p.s, d: p.d, at: at(p), text: str(p.text, 200) };
+  });
   if (o.runBase >= 0 && o.runBase < PL.RUN_LEVELS.length) d.runBase = Math.round(o.runBase);
   d.levelsAt = +o.levelsAt || 0;
   d.updated = +o.updated || 0;

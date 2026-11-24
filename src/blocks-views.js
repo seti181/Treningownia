@@ -79,9 +79,26 @@ function runInfo(st, b, today) {
   if (b.after === 'test' && !pc) h += `<p class="blk-warn">Na razie tylko spokojne biegi: ten blok ma sens po teście 5 km.</p>`;
   return h;
 }
+// Etap cyklu (budowanie / odciążenie) jako jedna linia.
+function phaseLine(st, d) {
+  const p = BL.phaseOf(st, d);
+  if (!p) return '';
+  return `<p class="phase-line${p.kind === 'odciazenie' ? ' is-rec' : ''}"><b>${esc(p.name)}</b> · tydzień ${p.week} z ${p.of}${p.kind === 'odciazenie' ? ' · ok. 60% objętości, wszystko spokojnie, bez zwiększeń' : ''}</p>`;
+}
+// Propozycje zwiększeń: nic nie zmienia się samo.
+function proposalsHTML(st, today) {
+  const ps = BL.proposals(st, today);
+  const alarm = BL.shoulderAlarm(st, today) && !BL.isRecovery(st, today);
+  if (!ps.length && !alarm) return '';
+  let h = `<section class="card props" aria-label="Propozycje"><h2 class="ch-t">Propozycje</h2>`;
+  if (alarm) h += `<p class="props-note">Zwiększenia wstrzymane: ból barku od 4/10 albo czerwony poranek w ostatnich 7 dniach.</p>`;
+  h += '<ul class="props-list">' + ps.map(p => `<li><p class="props-t"><b>${esc(p.title)}</b></p><p class="props-x">${esc(p.text)}</p>` +
+    `<div class="choices"><button type="button" class="chip-btn sm primary" data-act="pr-ok" data-v="${esc(p.id)}">Przyjmij</button><button type="button" class="chip-btn sm" data-act="pr-no" data-v="${esc(p.id)}">Nie teraz</button></div></li>`).join('') + '</ul></section>';
+  return h;
+}
 function todayBlocksHTML(st, today, prog) {
   const items = BL.dayView(st, today);
-  let h = `<h2 class="sub-h">Trening <button type="button" class="linkish sub-link" data-act="tab" data-v="tydzien">Plan tygodnia</button></h2>`;
+  let h = `<h2 class="sub-h">Trening <button type="button" class="linkish sub-link" data-act="tab" data-v="tydzien">Plan tygodnia</button></h2>${phaseLine(st, today)}${proposalsHTML(st, today)}`;
   if (!items.length) return h + `<p class="empty blk-empty">Dziś bez bloków. Dodasz je w zakładce Tydzień.</p>`;
   h += '<div class="sessions blk-list">';
   const firstOpen = items.findIndex(x => !x.entry && !x.skip && x.block);
@@ -130,6 +147,7 @@ function weekHTML(st, today, ui, prog) {
     `<p class="wk-range" aria-live="polite"><b>${esc(weekRange(from))}</b>${rel ? '<small>' + rel + '</small>' : ''}</p>` +
     `<button type="button" class="icon-btn" data-act="wk-next" aria-label="Następny tydzień">${ICON.chev}</button></div>`;
   h += `<div class="wk-sum card"><span>Biegi <b>${ws.runs}</b>/${BL.WEEK_RUNS}</span><span>Wspinanie <b>${ws.climbs}</b>/${BL.WEEK_CLIMBS}</span><span><b>${BL.fmtKm(ws.km)}</b> km</span></div>`;
+  h += phaseLine(st, from);
   h += challengesHTML(BL.challenges(st, from), { title: 'Wyzwania tygodnia' });
   h += '<ol class="wk">';
   for (let i = 0; i < 7; i++) {
@@ -252,6 +270,13 @@ function libraryHTML(st, ui) {
     h += '</li>';
   });
   h += '</ul>' + (st.week ? '<div class="choices"><button type="button" class="chip-btn sm" data-act="pat-reset">Przywróć tydzień startowy</button></div>' : '') + '</section>';
+  // cykl: tygodnie budowania i odciążenia
+  const c = st.cycle || { start: BL.weekStart(PL.ymd(new Date())), build: 0, recover: 1 };
+  h += `<section class="card form" id="cykl"><h2>Cykl treningowy</h2><p>Kilka tygodni budowania, potem tydzień odciążenia (ok. 60% objętości, bez zwiększeń). Propozycje zwiększeń pojawiają się tylko w tygodniach budowania.</p><div class="row">` +
+    `<label class="fld sm"><span>Budowanie (tygodnie)</span><select id="cy-build"><option value="0"${!st.cycle ? ' selected' : ''}>bez cyklu</option>${[2, 3, 4, 5, 6].map(n => `<option value="${n}"${st.cycle && st.cycle.build === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>` +
+    `<label class="fld sm"><span>Odciążenie (tygodnie)</span><select id="cy-rec">${[1, 2].map(n => `<option value="${n}"${c.recover === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>` +
+    `<label class="fld sm"><span>Początek (poniedziałek)</span><input type="date" id="cy-start" value="${esc(c.start)}"></label></div>` +
+    (st.cycle ? phaseLine(st, PL.ymd(new Date())) : '') + '</section>';
   BL.TRACK_IDS.forEach(t => {
     const list = BL.allBlocks(st).filter(b => b.t === t);
     h += `<h2 class="sub-h">${esc(TR[t].name)}</h2><ul class="lib">`;
@@ -314,6 +339,6 @@ function editorHTML(st, ui) {
   return h;
 }
 
-Object.assign(V, { challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
+Object.assign(V, { phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
 if (typeof module !== 'undefined' && module.exports) module.exports = V;
 })(typeof window !== 'undefined' ? window : globalThis);
