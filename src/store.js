@@ -21,6 +21,9 @@ function cleanItem(x) {
   if (x.kind === 'time') { o.dur = num(x.dur, 5, 7200) ? Math.round(x.dur) : 60; o.sets = 1; }
   if (x.kind !== 'time') o.rest = num(x.rest, 0, 600) ? Math.round(x.rest) : 30;
   if (typeof x.side === 'string' && x.side) o.side = str(x.side, 40);
+  ['lbl', 'restLbl', 'doneLbl'].forEach(f => { if (typeof x[f] === 'string' && x[f].trim()) o[f] = str(x[f], 20); });
+  if (x.measure) o.measure = true;
+  if (num(x.est, 10, 14400)) o.est = Math.round(x.est);
   return o;
 }
 function cleanBlock(id, b) {
@@ -30,10 +33,12 @@ function cleanBlock(id, b) {
   if (!BL || BL.KINDS.indexOf(b.kind) < 0 || !BL.TRACKS[b.t]) return null;
   const o = { id, name: str(b.name, 60) || 'Blok', kind: b.kind, t: b.t, min: num(b.min, 0, 600) ? Math.round(b.min) : 0, note: str(b.note, 300), at: at(b) };
   if (num(b.km, 0.1, 200)) o.km = Math.round(b.km * 100) / 100;
-  if (b.kind === 'timed') {
+  if (b.kind === 'timed' || (b.kind === 'run' && Array.isArray(b.items) && b.items.length)) {
     o.gap = num(b.gap, 0, 300) ? Math.round(b.gap) : 30;
     o.items = (Array.isArray(b.items) ? b.items : []).slice(0, 30).map(cleanItem).filter(Boolean);
   }
+  if (b.kind === 'run' && BL.ZONES && (BL.ZONES[b.zone] || b.zone === 'test')) o.zone = b.zone;
+  if (b.after === 'test') o.after = 'test';
   return o;
 }
 function cleanEntry(e) {

@@ -5,7 +5,7 @@
   "description": "Personal training app (Polish UI), installable and offline: plan, journal and progress; shoulder rehab with timed sessions and animated exercises, body-weight log, cloud sync; running and climbing next.",
   "scripts": {
     "build": "node tools/build.js",
-    "test": "npm run build && node tests/test-plan.js && node tests/test-store.js && node tests/test-blocks-logic.js && node tests/test-sync.js && node tests/test-offline.js && node tests/test-pwa.js && node tests/test-app.js && node tests/test-blocks.js",
+    "test": "npm run build && node tests/test-plan.js && node tests/test-store.js && node tests/test-blocks-logic.js && node tests/test-sync.js && node tests/test-offline.js && node tests/test-pwa.js && node tests/test-app.js && node tests/test-blocks.js && node tests/test-run.js",
     "test:plan": "node tests/test-plan.js && node tests/test-store.js && node tests/test-blocks-logic.js",
     "preview": "node tools/serve.js",
     "shots": "npm run build && node tests/shots-weight.js",

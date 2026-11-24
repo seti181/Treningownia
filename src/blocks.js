@@ -39,7 +39,10 @@ const CAT_LIST = [
   ['r-przod-uda', 'Rozciąganie przodu uda', 'rozc', ['Pięta do pośladka, kolana razem', 'Biodro lekko w przód', 'Lewa, potem prawa']],
   ['r-biodra', 'Rozciąganie zginaczy biodra', 'rozc', ['Wykrok, kolano tylnej nogi na ziemi', 'Biodra w przód, tułów prosto', 'Lewa, potem prawa']],
   ['r-posladki', 'Rozciąganie pośladków', 'rozc', ['Leżenie, kostka na kolanie drugiej nogi', 'Przyciągnij nogę do klatki', 'Lewa, potem prawa']],
-  ['r-plecy', 'Pozycja dziecka', 'rozc', ['Klęk, pośladki na piętach', 'Ręce daleko w przód, czoło w dół', 'Oddychaj w plecy']]
+  ['r-plecy', 'Pozycja dziecka', 'rozc', ['Klęk, pośladki na piętach', 'Ręce daleko w przód, czoło w dół', 'Oddychaj w plecy']],
+  ['trucht', 'Trucht', 'bieg', ['Spokojnie: da się rozmawiać pełnymi zdaniami', 'Krótki krok, luźne ramiona', 'Oddech nosem i ustami, bez zadyszki']],
+  ['bieg-szybko', 'Bieg szybki', 'bieg', ['Mocno, ale równo od początku do końca', 'Wyprostowana sylwetka, praca ramion', 'Nie sprintuj: tempo ma wytrzymać cały odcinek']],
+  ['marsz', 'Marsz', 'bieg', ['Spokojny marsz, oddech wraca', 'Ramiona luźno', 'Przygotuj się do następnego odcinka']]
 ];
 const CAT = {};
 CAT_LIST.forEach(c => {
@@ -50,11 +53,24 @@ CAT_LIST.forEach(c => {
 const H = (ex, sets, hold, rest, note) => ({ ex, kind: 'hold', sets, hold, rest, note: note || '' });
 const R = (ex, sets, reps, rest, note) => ({ ex, kind: 'reps', sets, reps, rest, note: note || '' });
 const T = (ex, dur, note) => ({ ex, kind: 'time', sets: 1, dur, note: note || '' });
+// odcinki biegu: lbl to napis i głos zamiast „Ćwicz”/„Trzymaj”, restLbl zamiast „Przerwa”, measure = czas tego odcinka idzie do dziennika
+const RUN = (o, extra) => Object.assign(o, extra);
 const BUILTIN = [
-  { id: 'bieg-spokojny', name: 'Bieg spokojny', kind: 'run', t: 'bieg', min: 40, note: '30–40 min tak spokojnie, żeby dało się rozmawiać (wysiłek 3–4 z 10).' },
-  { id: 'bieg-przebiezki', name: 'Bieg z przebieżkami', kind: 'run', t: 'bieg', min: 35, note: '30 min spokojnie, potem 6 × 20 s szybciej; między nimi marsz albo trucht, aż oddech wróci.' },
-  { id: 'bieg-dlugi', name: 'Długi spokojny bieg', kind: 'run', t: 'bieg', min: 60, note: '50–60 min, wysiłek 3–4 z 10. Ma być przyjemnie, nie ciężko.' },
-  { id: 'bieg-test5', name: 'Test 5 km', kind: 'run', t: 'bieg', min: 40, km: 5, note: 'Po 10 min rozgrzewki: 5 km możliwie równym, mocnym tempem. Z wyniku policzymy tempa treningowe.' },
+  { id: 'bieg-spokojny', name: 'Bieg spokojny', kind: 'run', t: 'bieg', min: 40, zone: 'easy', gap: 5, note: '30–40 min tak spokojnie, żeby dało się rozmawiać (wysiłek 3–4 z 10).',
+    items: [RUN(T('trucht', 2400, 'Spokojnie: da się rozmawiać'), { lbl: 'Trucht' })] },
+  { id: 'bieg-przebiezki', name: 'Bieg z przebieżkami', kind: 'run', t: 'bieg', min: 35, zone: 'easy', gap: 10, after: 'test', note: '30 min spokojnie, potem 6 × 20 s szybciej; między nimi marsz, aż oddech wróci.',
+    items: [RUN(T('trucht', 1800, 'Spokojnie'), { lbl: 'Trucht' }), RUN(H('bieg-szybko', 6, 20, 60, 'Szybko i luźno, nie sprint'), { lbl: 'Szybko', restLbl: 'Marsz' })] },
+  { id: 'bieg-dlugi', name: 'Długi spokojny bieg', kind: 'run', t: 'bieg', min: 55, zone: 'easy', gap: 5, note: '50–60 min, wysiłek 3–4 z 10. Ma być przyjemnie, nie ciężko.',
+    items: [RUN(T('trucht', 3300, 'Spokojnie, równo'), { lbl: 'Trucht' })] },
+  { id: 'bieg-test5', name: 'Test 5 km', kind: 'run', t: 'bieg', min: 40, km: 5, zone: 'test', gap: 10, note: 'Po 10 min rozgrzewki: 5 km możliwie równym, mocnym tempem. Na mecie naciśnij „Meta”. Z wyniku policzymy tempa treningowe.',
+    items: [RUN(T('trucht', 600, 'Rozgrzewka, ostatnie 2 min trochę szybciej'), { lbl: 'Rozgrzewka' }), RUN(R('bieg-szybko', 1, '5 km', 0, 'Równo i mocno, do mety'), { lbl: 'Test', doneLbl: 'Meta', measure: true, est: 1560 }),
+      RUN(T('marsz', 300, 'Schłodzenie'), { lbl: 'Marsz' })] },
+  { id: 'bieg-tempo', name: 'Bieg w tempie progowym', kind: 'run', t: 'bieg', min: 40, zone: 'tempo', gap: 10, after: 'test', note: '10 min spokojnie, 20 min w tempie progowym (mocno, ale do utrzymania), 10 min spokojnie.',
+    items: [RUN(T('trucht', 600, 'Rozgrzewka'), { lbl: 'Trucht' }), RUN(T('bieg-szybko', 1200, 'Tempo progowe, równo'), { lbl: 'Tempo' }), RUN(T('trucht', 600, 'Schłodzenie'), { lbl: 'Trucht' })] },
+  { id: 'bieg-interwaly', name: 'Interwały 6 × 3 min', kind: 'run', t: 'bieg', min: 50, zone: 'interval', gap: 10, after: 'test', note: '10 min spokojnie, 6 × 3 min szybko z 2 min truchtu, 10 min spokojnie.',
+    items: [RUN(T('trucht', 600, 'Rozgrzewka'), { lbl: 'Trucht' }), RUN(H('bieg-szybko', 6, 180, 120, 'Tempo interwałowe'), { lbl: 'Szybko', restLbl: 'Trucht' }), RUN(T('trucht', 600, 'Schłodzenie'), { lbl: 'Trucht' })] },
+  { id: 'bieg-narastajacy', name: 'Bieg z narastającym tempem', kind: 'run', t: 'bieg', min: 45, zone: 'steady', gap: 5, after: 'test', note: '20 min spokojnie, 15 min średnio, 10 min w tempie progowym.',
+    items: [RUN(T('trucht', 1200, 'Spokojnie'), { lbl: 'Trucht' }), RUN(T('trucht', 900, 'Średnio'), { lbl: 'Średnio' }), RUN(T('bieg-szybko', 600, 'Tempo progowe'), { lbl: 'Tempo' })] },
   { id: 'wspinanie', name: 'Wspinanie', kind: 'climb', t: 'wspin', min: 90, note: 'Hala, ściana, skała albo TRS. Najpierw łatwe drogi na rozgrzewkę.' },
   { id: 'palce-20', name: 'Zwisy na palcach 20 mm', kind: 'timed', t: 'palce', min: 15, gap: 60, note: 'Obie ręce, ręce proste, bez podciągania. Przed wspinaniem albo osobno.',
     items: [T('rozgrzewka-palce', 180), H('zwis-20', 6, 10, 120, 'Ok. 7 z 10 · stopy na krześle, jeśli trzeba')] },
@@ -74,9 +90,9 @@ const BUILTIN = [
 ];
 const BUILTIN_BY = {};
 BUILTIN.forEach(b => { BUILTIN_BY[b.id] = b; });
-// Domyślny tydzień (0 = niedziela): 3 biegi, 3 wspinania, siła i rozciąganie w sobotę.
+// Domyślny tydzień (0 = niedziela): 3 biegi (na razie tylko spokojne, do testu 5 km), 3 wspinania, siła i rozciąganie w sobotę.
 const DEFAULT_WEEK = {
-  1: ['bieg-spokojny', 'rozc-bieg'], 2: ['palce-20', 'wspinanie'], 3: ['bieg-przebiezki', 'rozc-bieg'], 4: ['wspinanie'],
+  1: ['bieg-spokojny', 'rozc-bieg'], 2: ['palce-20', 'wspinanie'], 3: ['bieg-spokojny', 'rozc-bieg'], 4: ['wspinanie'],
   5: ['bieg-dlugi', 'rozc-bieg'], 6: ['sila-pompki', 'sila-kolka', 'rozc-pelne'], 0: ['wspinanie']
 };
 
@@ -125,13 +141,13 @@ function copyBlock(st, id, now) {
   return saveBlock(st, x, now);
 }
 function blockSeconds(b) {
-  if (b.kind === 'timed' && b.items && b.items.length) return PL.seconds({ gap: b.gap || 30, blocks: b.items });
+  if ((b.kind === 'timed' || b.kind === 'run') && b.items && b.items.length) return PL.seconds({ gap: b.gap == null ? 30 : b.gap, blocks: b.items });
   return (b.min || 0) * 60;
 }
 function blockMinutes(b) { return Math.max(1, Math.round(blockSeconds(b) / 60)); }
 // Sesja dla odtwarzacza.
 function sessionOf(b, key) {
-  return { id: 'blok', label: TRACKS[b.t].name, short: '', title: b.name, gap: b.gap || 30, blocks: clone(b.items || []), blockKey: key, blockId: b.id, track: b.t };
+  return { id: 'blok', label: TRACKS[b.t].name, short: '', title: b.name, gap: b.gap == null ? 30 : b.gap, blocks: clone(b.items || []), blockKey: key, blockId: b.id, track: b.t, run: b.kind === 'run' };
 }
 
 // ---------- tydzień i dni ----------
@@ -367,6 +383,33 @@ function runForm(st, today) {
   return best;
 }
 
+// ---------- tempa treningowe ----------
+// Z ostatniego testu 5 km (blok bieg-test5, od 4,9 km, z czasem, w ostatnich 120 dniach). Strefy jako mnożniki tempa testu.
+const ZONES = {
+  easy: { name: 'spokojne', k: [1.22, 1.32] }, steady: { name: 'średnie', k: [1.12, 1.18] }, tempo: { name: 'progowe', k: [1.04, 1.08] },
+  interval: { name: 'interwałowe', k: [0.97, 1.01] }, strides: { name: 'przebieżki', k: [0.88, 0.94] }
+};
+function paces(st, today) {
+  const from = PL.addDays(today, -119);
+  let test = null;
+  // tylko wiarygodny wynik: tempo między 2:30 a 15:00 na km
+  const ok = e => e.km >= 4.9 && e.sec && e.sec / e.km >= 150 && e.sec / e.km <= 900;
+  entries(st).forEach(x => { if (x.e.b === 'bieg-test5' && ok(x.e) && x.d >= from && x.d <= today && (!test || x.d >= test.d)) test = { d: x.d, km: x.e.km, sec: x.e.sec }; });
+  if (!test) return null;
+  const p = test.sec / test.km, z = {};
+  Object.keys(ZONES).forEach(k => { z[k] = { name: ZONES[k].name, lo: Math.round(p * ZONES[k].k[0]), hi: Math.round(p * ZONES[k].k[1]) }; });
+  return { test, pace: Math.round(p), zones: z };
+}
+const fmtPace = s => Math.floor(s / 60) + ':' + pad(Math.round(s) % 60);
+// Tekst tempa dla bloku biegowego: zakres ze strefy albo podpowiedź bez testu.
+function paceText(b, pc) {
+  if (!b || b.kind !== 'run' || !b.zone) return '';
+  if (b.zone === 'test') return pc ? 'Ostatni test: ' + fmtPace(pc.pace) + '/km' : 'Wynik ustawi Twoje tempa treningowe';
+  if (!pc) return b.zone === 'easy' ? 'Tempo: na rozmowę (tempa po teście 5 km)' : 'Najpierw test 5 km: z niego policzę tempo';
+  const z = pc.zones[b.zone];
+  return z ? 'Tempo ' + z.name + ': ' + fmtPace(z.lo) + '–' + fmtPace(z.hi) + '/km' : '';
+}
+
 // ---------- czas, dystans, tempo ----------
 const pad = n => (n < 10 ? '0' : '') + n;
 function fmtDur(sec) {
@@ -401,7 +444,7 @@ const API = {
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
-  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM
+  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM, ZONES, paces, paceText, fmtPace
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

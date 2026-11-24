@@ -502,7 +502,7 @@ function blockAction(act, b, t) {
 function startBlock(d, k, btn) {
   const it = BL.dayItems(state, d).find(x => x.k === k);
   const b = it && BL.getBlock(state, it.b);
-  if (!b || b.kind !== 'timed' || !b.items || !b.items.length) { openLog(d, k); return; }
+  if (!b || (b.kind !== 'timed' && b.kind !== 'run') || !b.items || !b.items.length) { openLog(d, k); return; }
   audioInit();
   openPlayer(BL.sessionOf(b, k), d, false, btn);
 }
@@ -929,7 +929,7 @@ function openPlayer(session, date, practice, btn) {
   Object.assign(P, {
     open: true, finished: false, session, date, practice, single: !!session.single, steps: PL.steps(session), i: 0,
     paused: false, pausedAt: 0, autoPaused: false, t0: Date.now(), startedAt: Date.now(),
-    ex: null, bi: -1, animT: 0, last: 0, beeped: {}, pain: null, partial: false, returnFocus: btn || null,
+    ex: null, bi: -1, animT: 0, last: 0, beeped: {}, pain: null, partial: false, returnFocus: btn || null, measured: 0,
     base: { rung: state.rung, rungGreen: state.rungGreen }, key: date + '|' + session.id,
     redo: !practice && PL.isDone(state, date, session.id), before: PL.progress(state, date)
   });
@@ -1015,7 +1015,7 @@ function enterStep(i, carry) {
       el.nx.classList.add('is-last');
     }
   }
-  el.state.textContent = LBL[kind];
+  el.state.textContent = (kind === 'rest' ? s.b.restLbl : (s.k === 'work' ? s.b.lbl : '')) || LBL[kind];
   el.set.hidden = s.b.kind === 'time';
   el.set.textContent = s.b.kind === 'time' ? '' : 'Seria ' + (s.k === 'prep' ? 1 : s.k === 'rest' ? s.set + 1 : s.set) + ' z ' + s.b.sets;
   el.up.textContent = upnextText(i);
@@ -1039,21 +1039,23 @@ function enterStep(i, carry) {
     speak(say);
   } else if (kind === 'hold' || kind === 'time') {
     beep('go');
-    if (s.set === 1) speak(kind === 'time' ? 'Start' : 'Trzymaj');
-    say = LBL[kind] + (kind === 'hold' ? ', seria ' + s.set + ' z ' + s.sets : '');
+    if (s.b.lbl) speak(s.b.lbl + (kind === 'hold' && s.sets > 1 ? ', ' + s.set + ' z ' + s.sets : '') + (s.dur >= 60 ? ', ' + Math.round(s.dur / 60) + ' ' + plural(Math.round(s.dur / 60), 'minuta', 'minuty', 'minut') : ''));
+    else if (s.set === 1) speak(kind === 'time' ? 'Start' : 'Trzymaj');
+    say = (s.b.lbl || LBL[kind]) + (kind === 'hold' ? ', seria ' + s.set + ' z ' + s.sets : '');
   } else if (kind === 'reps') {
     beep('go');
-    say = 'Seria ' + s.set + ' z ' + s.sets + ', ' + s.b.reps.replace('–', ' do ');
-    speak('Seria ' + s.set + (s.b.side && s.set === 1 ? '. ' + s.b.side : ''));
+    say = (s.b.lbl ? s.b.lbl + ', ' : 'Seria ' + s.set + ' z ' + s.sets + ', ') + s.b.reps.replace('–', ' do ');
+    speak(s.b.lbl ? s.b.lbl + ', ' + s.b.reps : 'Seria ' + s.set + (s.b.side && s.set === 1 ? '. ' + s.b.side : ''));
   } else if (kind === 'rest') {
-    speak('Przerwa');
-    say = 'Przerwa ' + s.dur + ' sekund';
+    speak(s.b.restLbl || 'Przerwa');
+    say = (s.b.restLbl || 'Przerwa') + ' ' + s.dur + ' sekund';
   }
   el.live.textContent = say ? say.replace(' — ', ', ') : '';
 }
 function paintControls() {
   const reps = P.kind === 'reps';
-  el.main.textContent = reps ? 'Seria zrobiona' : P.paused ? 'Wznów' : 'Pauza';
+  const cur = P.steps && P.steps[P.i];
+  el.main.textContent = reps ? ((cur && cur.b && cur.b.doneLbl) || 'Seria zrobiona') : P.paused ? 'Wznów' : 'Pauza';
   el.main.classList.toggle('is-done-btn', reps);
   el.main.setAttribute('aria-pressed', !reps && P.paused ? 'true' : 'false');
   el.paused.hidden = !P.paused || reps;
@@ -1113,6 +1115,7 @@ function loop(ts) {
 }
 function advance(carry) {
   const s = P.steps[P.i], n = P.steps[P.i + 1];
+  if (s && s.k === 'work' && s.b.measure) P.measured = Math.round(elapsed());
   // Koniec napięcia sygnalizuje dwutonowy dźwięk; przed nowym ćwiczeniem i na końcu grają ich własne sygnały.
   if (s.k === 'work' && s.b.kind !== 'reps' && n && n.k === 'rest') beep('stop');
   enterStep(P.i + 1, carry || 0);
@@ -1154,7 +1157,9 @@ function finish(partial) {
   el.live.textContent = partial ? 'Trening przerwany' : 'Sesja zrobiona';
   if (!P.practice && P.session.blockKey) {
     const b = BL.getBlock(state, P.session.blockId) || { id: P.session.blockId, t: P.session.track, kind: 'timed', name: P.session.title };
-    BL.logBlock(state, P.date, P.session.blockKey, b, { dur: secs, partial }, now());
+    const data = { dur: secs, partial };
+    if (P.session.run) data.sec = P.measured || secs;
+    BL.logBlock(state, P.date, P.session.blockKey, b, data, now());
     commit();
   } else if (!P.practice) {
     const x = { done: true, at: now(), dur: secs, pain: null, label: P.session.label };
@@ -1175,8 +1180,10 @@ function finish(partial) {
   $('dn-note-wrap').hidden = P.practice;
   el.dnSaved.textContent = P.single ? 'Ćwiczenia z atlasu się nie zapisują i nie dają punktów.'
     : P.practice ? 'Próba: nic się nie zapisuje. Plan zaczyna się ' + PL.longDate(state.start) + '.'
-    : P.session.blockKey ? 'Zapisane w dzienniku.'
+    : P.session.run ? 'Zapisane. Dopisz dystans, a policzę tempo.' : P.session.blockKey ? 'Zapisane w dzienniku.'
     : 'Zapisane. Jutro rano zapytam, jak bark po treningu.';
+  const rl = $('dn-runlog');
+  if (rl) rl.hidden = !(P.session.run && !P.practice);
   paintGain();
   el.dnTitle.focus({ preventScroll: true });
 }
@@ -1296,6 +1303,7 @@ pl.addEventListener('click', e => {
     case 'finish': el.sheet.hidden = true; P.paused = false; finish(true); break;
     case 'quit': closePlayer(); break;
     case 'close': flushNote(); closePlayer(); break;
+    case 'runlog': { flushNote(); const d = P.date, k = P.session.blockKey; closePlayer(); openLog(d, k); break; }
     case 'sound': {
       const order = plVoice ? ['voice', 'beep', 'off'] : ['beep', 'off'];
       const cur = order.indexOf(effMode());

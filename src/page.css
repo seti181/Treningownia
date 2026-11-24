@@ -181,6 +181,10 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .lvl-form { margin: 2px 0 0; font-size: 14px; line-height: 1.4; color: var(--muted); }
 .lvl-form b { color: var(--ink); font-family: var(--mono); font-weight: 500; }
 .lvl-form small { font-size: 12.5px; }
+.paces { padding: 14px 18px; margin-top: 12px; max-width: 780px; }
+.pc-t2 { border-collapse: collapse; margin-top: 6px; font-size: 14.5px; }
+.pc-t2 th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 18px 3px 0; }
+.pc-t2 td { font-family: var(--mono); font-size: 14px; }
 .lvl-note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); max-width: 780px; }
 .lvl-note b { color: var(--ink); }
 .mini-lv { display: flex; align-items: center; gap: 12px; }
@@ -374,6 +378,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .sess.is-skip .sess-title { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 2px; }
 .blk-warn { margin: 0; font-size: 14px; line-height: 1.4; padding: 8px 11px; border-radius: 10px; background: color-mix(in srgb, var(--warn) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
 .blk-note { margin: 0; color: var(--muted); font-size: 14.5px; }
+.blk-pace { margin: 0; font-family: var(--mono); font-size: 13px; color: var(--ink); }
 .blk-acts { margin-top: 2px; }
 .blk-acts .chip-btn.sm, .wk-acts .chip-btn.sm, .wk-days .chip-btn.sm, .pick .chip-btn.sm, .wk-plus { min-height: 44px; }
 .blk-empty { margin-bottom: 4px; }

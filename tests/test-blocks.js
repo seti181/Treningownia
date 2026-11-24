@@ -73,11 +73,11 @@ async function open(b, o) {
   ok('4 week summary: 1 run, 1 climb, 6,5 km', /Biegi 1\/3/.test(await txt('.wk-sum')) && /Wspinanie 1\/3/.test(await txt('.wk-sum')) && /6,5 km/.test(await txt('.wk-sum')), await txt('.wk-sum'));
 
   // 5) przeniesienie środowego biegu na czwartek, dodanie bloku w sobotę, pominięcie
-  await page.click('[data-act="wk-open"][data-d="2026-11-25"][data-k="p0-bieg-przebiezki"]');
+  await page.click('[data-act="wk-open"][data-d="2026-11-25"][data-k="p0-bieg-spokojny"]');
   await page.click('.wk-acts [data-act="wk-move"]');
   await page.screenshot({ path: OUT + 'b-05-move.png', fullPage: true });
   await page.click('.wk-days [data-act="b-move"][data-v="2026-11-26"]'); await page.clock.runFor(200);
-  ok('5 moved: Wednesday without the run, Thursday with it', !/Bieg z przebieżkami/.test(await txt('#wk-2026-11-25')) && /Bieg z przebieżkami/.test(await txt('#wk-2026-11-26')), await txt('#toast'));
+  ok('5 moved: Wednesday without the run, Thursday with it', !/Bieg spokojny/.test(await txt("#wk-2026-11-25")) && /Bieg spokojny/.test(await txt("#wk-2026-11-26")), await txt('#toast'));
   await page.click('.wk-plus[data-d="2026-11-28"]');
   await page.click('[data-act="b-add"][data-d="2026-11-28"][data-s="sila-core"]'); await page.clock.runFor(200);
   ok('5 added Core on Saturday', /Core/.test(await txt('#wk-2026-11-28')));
@@ -85,7 +85,7 @@ async function open(b, o) {
   await page.click('.wk-acts [data-act="b-skip"]'); await page.clock.runFor(200);
   ok('5 skipped Sunday climb', /pominięte/.test(await txt('#wk-2026-11-29')));
   await page.click('[data-act="wk-next"]'); await page.clock.runFor(100);
-  ok('5 next week follows the default plan', /30 lis – 6 gru/.test(await txt('.wk-range')) && /Bieg z przebieżkami/.test(await txt('#wk-2026-12-02')), await txt('.wk-range'));
+  ok('5 next week follows the default plan', /30 lis – 6 gru/.test(await txt('.wk-range')) && /Bieg spokojny/.test(await txt("#wk-2026-12-02")), await txt('.wk-range'));
   await page.click('[data-act="wk-prev"]'); await page.clock.runFor(100);
   await page.screenshot({ path: OUT + 'b-06-tydzien.png', fullPage: true });
 
@@ -147,7 +147,7 @@ async function open(b, o) {
     const o = await open(b, { ctx: c });
     for (const pg of ['dzis', 'tydzien', 'bloki']) {
       await go(o.page, pg);
-      if (pg === 'tydzien') { await o.page.click('[data-act="wk-open"][data-d="2026-11-25"][data-k="p0-bieg-przebiezki"]'); await o.page.click('.wk-acts [data-act="wk-move"]'); }
+      if (pg === 'tydzien') { await o.page.click('[data-act="wk-open"][data-d="2026-11-25"][data-k="p0-bieg-spokojny"]'); await o.page.click('.wk-acts [data-act="wk-move"]'); }
       const ov = await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       check('9 ' + name + ': no horizontal overflow on ' + pg, !ov);
       await o.page.screenshot({ path: OUT + 'b-2x-' + name + '-' + pg + '.png', fullPage: true });

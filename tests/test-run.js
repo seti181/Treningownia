@@ -1,0 +1,73 @@
+// Playwright: bieg z zegarem (odcinki, głos, „Dopisz dystans”), test 5 km mierzony do „Mety”, tempa treningowe z testu.
+// Ekrany: shots/r-*.png
+const { chromium } = require('playwright');
+const { check, finish, built, ignorable, OUT, WEB, KEY, go } = require('./check');
+const APP = built(WEB);
+const errors = [];
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('console', m => { if (m.type() === 'error' && !ignorable(m.text())) errors.push(m.text()); });
+  await page.clock.install({ time: new Date(2026, 10, 30, 7, 0) }); // poniedziałek
+  await page.goto(APP);
+  await page.clock.runFor(300);
+  const txt = async q => ((await page.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+  const st = () => page.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
+  const toDone = async () => { let n = 0; while (!(await page.isVisible('#pl-done')) && n++ < 80) await page.click('[data-pl="next"]'); };
+
+  // 1) spokojny bieg z zegarem
+  const card = '#dzis-in .blk >> nth=0';
+  ok('1 Monday: easy run with a timer and the talk-pace hint', /Bieg spokojny/.test(await txt(card)) && /na rozmowę/.test(await txt(card)) && (await page.isVisible('#dzis-in .blk [data-act="b-start"]')), await txt(card));
+  await page.click('#dzis-in .blk [data-act="b-start"] >> nth=0'); await page.clock.runFor(300);
+  await page.click('[data-pl="next"]'); await page.clock.runFor(300);
+  ok('1 run segment: label Trucht, jogging figure', (await txt('#pl-state')) === 'Trucht' && (await txt('#pl-name')) === 'Trucht' && (await page.locator('#pl-svg .bd.torso').count()) === 1, await txt('#pl-state'));
+  await page.screenshot({ path: OUT + 'r-01-player.png' });
+  await toDone();
+  ok('1 done screen offers to add the distance', await page.isVisible('#dn-runlog'));
+  await page.click('#dn-runlog'); await page.clock.runFor(200);
+  ok('1 log form opens for this run', (await page.isVisible('#tab-wpis')) && (await page.isVisible('#lg-km')));
+  await page.fill('#lg-km', '6'); await page.fill('#lg-time', '40:00'); await page.click('[data-act="lg-set"][data-v="rpe:3"]');
+  await page.click('[data-act="lg-save"]'); await page.clock.runFor(200);
+  let s = await st();
+  const e1 = s.blog['2026-11-30']['p0-bieg-spokojny'];
+  ok('1 saved: 6 km in 40:00 with effort', e1 && e1.km === 6 && e1.sec === 2400 && e1.rpe === 3, JSON.stringify(e1));
+  function ok(n, c, x) { return check(n, c, x); }
+
+  // 2) test 5 km: dodany w Tygodniu na dziś, mierzony do „Mety”
+  await go(page, 'tydzien');
+  await page.click('.wk-plus[data-d="2026-11-30"]');
+  await page.click('[data-act="b-add"][data-d="2026-11-30"][data-s="bieg-test5"]'); await page.clock.runFor(200);
+  await go(page, 'dzis');
+  const testCard = '#dzis-in .blk:has-text("Test 5 km")';
+  ok('2 test card says it will set the paces', /ustawi Twoje tempa/.test(await txt(testCard)), await txt(testCard));
+  await page.click(testCard + ' [data-act="b-start"]'); await page.clock.runFor(300);
+  await page.click('[data-pl="next"]'); await page.clock.runFor(200); // przygotowanie -> rozgrzewka
+  await page.click('[data-pl="next"]'); await page.clock.runFor(200); // rozgrzewka -> przygotuj się do testu
+  await page.click('[data-pl="next"]'); await page.clock.runFor(200); // -> test
+  ok('2 test leg: Test label and a Meta button', (await txt('#pl-state')) === 'Test' && (await txt('#pl-main')) === 'Meta', await txt('#pl-state') + ' | ' + await txt('#pl-main'));
+  await page.screenshot({ path: OUT + 'r-02-test.png' });
+  await page.clock.fastForward(1500 * 1000); await page.clock.runFor(100);
+  await page.click('#pl-main'); await page.clock.runFor(200); // meta
+  await toDone();
+  s = await st();
+  const te = Object.values(s.blog['2026-11-30']).find(x => x.b === 'bieg-test5');
+  ok('2 only the test leg is timed (about 25:00)', te && Math.abs(te.sec - 1500) <= 3, te && te.sec);
+  await page.click('#dn-runlog'); await page.clock.runFor(200);
+  ok('2 log form shows the measured time', /^25:0\d$/.test(await page.inputValue('#lg-time')), await page.inputValue('#lg-time'));
+  await page.fill('#lg-km', '5'); await page.click('[data-act="lg-save"]'); await page.clock.runFor(200);
+
+  // 3) tempa z testu
+  await go(page, 'postep');
+  const pcs = await txt('#postep-in .paces');
+  ok('3 training paces from the test (5:00/km -> easy 6:06–6:36)', /Spokojne ?6:06–6:36\/km/.test(pcs) && /Interwałowe ?4:51–5:03\/km/.test(pcs), pcs);
+  await page.locator('#postep-in .paces').screenshot({ path: OUT + 'r-03-paces.png' });
+  await go(page, 'bloki');
+  ok('3 library: interval block shows its pace now', /Tempo interwałowe: 4:51–5:03\/km/.test(await txt('#bloki-in')));
+  await page.screenshot({ path: OUT + 'r-04-bloki.png', fullPage: true });
+  await ctx.close();
+  await b.close();
+  finish(errors);
+})();

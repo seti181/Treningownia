@@ -70,6 +70,15 @@ function recordsHTML(st, today) {
 }
 
 // ---------- Dziś ----------
+const timedRun = b => !!b && (b.kind === 'timed' || b.kind === 'run') && !!(b.items && b.items.length);
+// Linia tempa i ostrzeżenie dla bloków, które mają sens dopiero po teście 5 km.
+function runInfo(st, b, today) {
+  if (!b || b.kind !== 'run') return '';
+  const pc = BL.paces(st, today);
+  let h = `<p class="blk-pace">${esc(BL.paceText(b, pc))}</p>`;
+  if (b.after === 'test' && !pc) h += `<p class="blk-warn">Na razie tylko spokojne biegi: ten blok ma sens po teście 5 km.</p>`;
+  return h;
+}
 function todayBlocksHTML(st, today, prog) {
   const items = BL.dayView(st, today);
   let h = `<h2 class="sub-h">Trening <button type="button" class="linkish sub-link" data-act="tab" data-v="tydzien">Plan tygodnia</button></h2>`;
@@ -93,11 +102,11 @@ function todayBlocksHTML(st, today, prog) {
     } else if (!b) {
       h += `<p class="sess-list">Tego bloku nie ma już w bibliotece.</p><div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-remove" ${ds}>Usuń z dnia</button></div>`;
     } else {
-      h += `<p class="sess-list">${esc(summary(b))}</p>${b.kind === 'climb' ? `<p class="blk-warn">${esc(BL.CLIMB_NOTE)}</p>` : ''}`;
-      h += b.kind === 'timed'
-        ? `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-start" ${ds}>Zacznij</button>`
+      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${b.kind === 'climb' ? `<p class="blk-warn">${esc(BL.CLIMB_NOTE)}</p>` : ''}`;
+      h += timedRun(b)
+        ? `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-start" ${ds}>${b.kind === 'run' ? 'Zacznij z zegarem' : 'Zacznij'}</button>`
         : `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-log" ${ds}>Zapisz trening</button>`;
-      h += `<div class="choices blk-acts">${b.kind === 'timed' ? `<button type="button" class="chip-btn sm" data-act="b-log" ${ds}>Zapisz bez zegara</button>` : ''}` +
+      h += `<div class="choices blk-acts">${timedRun(b) ? `<button type="button" class="chip-btn sm" data-act="b-log" ${ds}>${b.kind === 'run' ? 'Zapisz bez zegara' : 'Zapisz bez zegara'}</button>` : ''}` +
         `<button type="button" class="chip-btn sm" data-act="b-move-open" ${ds}>Przenieś</button><button type="button" class="chip-btn sm" data-act="b-skip" data-v="1" ${ds}>Pomiń</button></div>`;
     }
     h += '</article>';
@@ -144,7 +153,7 @@ function weekHTML(st, today, ui, prog) {
         h += '<li class="wk-acts"><div class="choices">';
         if (e) h += `<button type="button" class="chip-btn sm" data-act="b-log" ${ds}>Popraw wpis</button>`;
         else if (b && !x.skip) {
-          h += b.kind === 'timed' ? `<button type="button" class="chip-btn sm primary" data-act="b-start" ${ds}>Zacznij</button><button type="button" class="chip-btn sm" data-act="b-log" ${ds}>Zapisz bez zegara</button>`
+          h += timedRun(b) ? `<button type="button" class="chip-btn sm primary" data-act="b-start" ${ds}>Zacznij</button><button type="button" class="chip-btn sm" data-act="b-log" ${ds}>Zapisz bez zegara</button>`
             : `<button type="button" class="chip-btn sm primary" data-act="b-log" ${ds}>Zapisz trening</button>`;
         }
         if (!e) {
@@ -249,7 +258,7 @@ function libraryHTML(st, ui) {
     list.forEach(b => {
       const own = !BL.isBuiltin(b.id), edited = BL.isEdited(st, b.id);
       h += `<li class="card lib-i" style="--c:var(${TR[t].c})"><div class="lib-top">${ttape(t)}<span class="wk-t"><b>${esc(b.name)}</b><small>${esc(minsOf(b))} · +${TR[t].pts} pkt${own ? ' · własny' : edited ? ' · zmieniony' : ''}</small></span></div>` +
-        `<p class="lib-sum">${esc(summary(b))}</p>`;
+        `<p class="lib-sum">${esc(b.kind === 'run' ? b.note : summary(b))}</p>` + (b.kind === 'run' ? `<p class="blk-pace">${esc(BL.paceText(b, BL.paces(st, PL.ymd(new Date()))))}${b.after === 'test' ? ' · po teście 5 km' : ''}</p>` : '');
       if (ui.blDel === b.id) {
         h += `<div class="confirm"><p><b>${own ? 'Usunąć ten blok?' : 'Przywrócić wersję startową?'}</b>${own ? ' Zniknie też z Twojego tygodnia.' : ''}</p><div class="choices"><button type="button" class="chip-btn sm danger" data-act="bl-del-yes" data-v="${esc(b.id)}">${own ? 'Usuń' : 'Przywróć'}</button><button type="button" class="chip-btn sm" data-act="bl-del" data-v="">Anuluj</button></div></div>`;
       } else {

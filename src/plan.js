@@ -254,6 +254,7 @@ function steps(session) {
 }
 // Szacunek czasu serii na powtórzenia: ok. 4 s na powtórzenie, spacery ok. 40 s.
 function repSec(b) {
+  if (b.est) return b.est;
   const n = parseInt(b.reps, 10) || 10;
   const per = /m/.test(b.reps) ? 40 : Math.min(75, Math.max(20, n * 4));
   return per * (b.side ? 2 : 1);

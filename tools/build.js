@@ -136,6 +136,7 @@ const player = `<div id="player" class="player" role="dialog" aria-modal="true" 
 <div class="alert" id="dn-msg" hidden><p id="dn-msg-t"></p></div>
 <label class="dn-note" id="dn-note-wrap"><span>Notatka, jeśli coś zauważyłeś (opcjonalnie)</span><input type="text" id="dn-note" maxlength="140" autocomplete="off" placeholder="np. zwis ciągnął pod pachą"></label>
 <p class="dn-saved" id="dn-saved"></p>
+<button type="button" class="go" data-pl="runlog" id="dn-runlog" hidden>Dopisz dystans</button>
 <button type="button" class="go" data-pl="close">Gotowe</button>
 </div></div>
 <div class="pl-sheet" id="pl-sheet" hidden><div class="pl-sheet-in" role="alertdialog" aria-modal="true" aria-labelledby="sh-t" aria-describedby="sh-d">

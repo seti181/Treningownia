@@ -19,7 +19,7 @@ check('no pulling exercises in built-in blocks (rehab rule)', !BL.BUILTIN.some(b
 
 // przeniesienie, pominięcie, dodanie, usunięcie
 BL.moveItem(st, '2026-11-24', 'p0-palce-20', '2026-11-25', at(1));
-check('move: gone from Tuesday, added to Wednesday', names(st, '2026-11-24') === 'wspinanie' && names(st, '2026-11-25') === 'bieg-przebiezki,rozc-bieg,palce-20');
+check('move: gone from Tuesday, added to Wednesday', names(st, '2026-11-24') === 'wspinanie' && names(st, '2026-11-25') === 'bieg-spokojny,rozc-bieg,palce-20');
 BL.skipItem(st, MON, 'p1-rozc-bieg', true, at(2));
 check('skip keeps the block, marked skipped', BL.dayView(st, MON).find(x => x.k === 'p1-rozc-bieg').skip === true);
 const k = BL.addItem(st, '2026-11-28', 'sila-core', at(3));
@@ -27,7 +27,7 @@ BL.removeItem(st, '2026-11-28', 'p2-rozc-pelne', at(4));
 check('add and remove on one day', names(st, '2026-11-28') === 'sila-pompki,sila-kolka,sila-core' && /^a/.test(k));
 check('other weeks still follow the pattern', names(st, '2026-12-01') === 'palce-20,wspinanie');
 BL.setPattern(st, 3, ['wspinanie'], at(5));
-check('pattern change applies to days without changes only', names(st, '2026-12-02') === 'wspinanie' && names(st, '2026-11-25') === 'bieg-przebiezki,rozc-bieg,palce-20');
+check('pattern change applies to days without changes only', names(st, '2026-12-02') === 'wspinanie' && names(st, '2026-11-25') === 'bieg-spokojny,rozc-bieg,palce-20');
 
 // dziennik i punkty
 const g = id => BL.getBlock(st, id);

@@ -230,6 +230,13 @@ function progressHTML(st, today, prog) {
   let h = `<header class="t-head"><p class="eyebrow">Postęp</p><h1 class="t-title">Droga do 7c i 1:20</h1></header>`;
   h += `<div class="lvls"><section class="hero card lvl">${gtag(lc.name, 'xl')}<div class="hero-main"><p class="eyebrow">Wspinanie</p><p class="hero-pts"><b>${lc.pts}</b> pkt</p>${bar(lc.pct, 'lg')}<p class="hero-next">${levelLine(lc)}</p><p class="lvl-form">${climbFormText(st, today)}</p></div></section>` +
     `<section class="hero card lvl lvl-run">${rtag(lr.short, 'xl')}<div class="hero-main"><p class="eyebrow">Bieganie · ${esc(lr.name)}</p><p class="hero-pts"><b>${lr.pts}</b> pkt</p>${bar(lr.pct, 'lg run')}<p class="hero-next">${levelLine(lr)}</p><p class="lvl-form">${runFormText(st, today)}</p></div></section></div>`;
+  if (BLK()) {
+    const pc = BLK().paces(st, today);
+    h += `<section class="card paces"><h2 class="w-h2">Tempa treningowe</h2>` + (pc
+      ? `<p class="lvl-form">Z testu 5 km: ${esc(BLK().fmtDur(pc.test.sec))} (${esc(relDay(pc.test.d, today))}), ${BLK().fmtPace(pc.pace)}/km.</p><table class="pc-t2"><tbody>` +
+        ['easy', 'steady', 'tempo', 'interval', 'strides'].map(z => `<tr><th scope="row">${esc(cap(pc.zones[z].name))}</th><td>${BLK().fmtPace(pc.zones[z].lo)}–${BLK().fmtPace(pc.zones[z].hi)}/km</td></tr>`).join('') + '</tbody></table>'
+      : `<p class="lvl-form">Policzę je z testu 5 km (blok „Test 5 km” w bibliotece; dodaj go w Tygodniu na wybrany dzień). Do tego czasu biegaj spokojnie, na rozmowę.</p>`) + '</section>';
+  }
   h += `<p class="lvl-note">Razem <b>${prog.total} pkt</b>. Poziom wspinania rośnie za wspinanie, palce i siłę, biegania za biegi (z ich wyzwaniami i rekordami). Rehabilitacja, rozciąganie i serie dni liczą się do sumy. Poziomy startowe zmienisz w Ustawieniach.</p>`;
   const hrs = Math.floor(prog.minutes / 60), mins = prog.minutes % 60;
   const all = prog.sessions + (prog.blocks || 0);

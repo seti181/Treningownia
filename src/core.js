@@ -1057,6 +1057,33 @@ const MOVES = [
     seq: holdSeq(child(0, [20, 4.5, 100], [-20, 4.5, 100]))
   }
 ];
+// bieg w miejscu: cztery klatki (lądowanie lewej, faza lotu, lądowanie prawej, faza lotu); k = długość kroku i pochylenie
+function runCycle(k, armK) {
+  const A = (side) => {
+    const s = side; // 1: lewa noga z przodu
+    const fw = [0.03 * s, -0.9, 0.42 * k], bk = [-0.03 * s, -0.86, -0.48 * k];
+    const legF = { a: fw, b: [0.02 * s, -0.98, 0.08] }, legB = { a: bk, b: [-0.02 * s, -0.35, -0.94] };
+    const armFwd = { a: [0.12 * s, -0.82, 0.55 * armK], b: [0.1 * s, 0.55, 0.85] }, armBack = { a: [0.12 * s, -0.86, -0.5 * armK], b: [0.1 * s, 0.1, 1] };
+    const lL = s > 0 ? legF : flip(legB), rL = s > 0 ? flip(legB) : legF;
+    const fix = l => ({ a: l.a, b: l.b });
+    return P({ root: [0, 86, 0], pitch: 6 + 6 * k, lL: fix(lL), rL: fix(rL), lF: s > 0 ? [0.1, 0.05, 1] : [0.1, -0.7, -0.4], rF: s > 0 ? [-0.1, -0.7, -0.4] : [-0.1, 0.05, 1],
+      lA: s > 0 ? { a: armBack.a, b: armBack.b } : armFwd, rA: s > 0 ? flip(armFwd) : flip({ a: armBack.a, b: armBack.b }) });
+  };
+  const M = (side) => {
+    const s = side; // 1: lewa noga wypycha, prawa idzie w przód z wysokim kolanem
+    const push = { a: [0.03 * s, -0.98, -0.2 * k], b: [0.02 * s, -0.9, -0.42 * k] }, knee = { a: [-0.03 * s, -0.55, 0.83 * k], b: [-0.02 * s, -0.98, -0.12] };
+    return P({ root: [0, 91, 0], pitch: 6 + 6 * k, lL: s > 0 ? push : flip(knee), rL: s > 0 ? knee : flip(push),
+      lF: s > 0 ? [0.1, -0.5, 0.8] : [0.1, -0.2, 1], rF: s > 0 ? [-0.1, -0.2, 1] : [-0.1, -0.5, 0.8],
+      lA: { a: [0.12, -0.95, 0], b: [0.1, 0.3, 1] }, rA: { a: [-0.12, -0.95, 0], b: [-0.1, 0.3, 1] } });
+  };
+  const t = 0.42 / (0.8 + 0.4 * k);
+  return [{ p: A(1), m: t }, { p: M(1), m: t }, { p: A(-1), m: t }, { p: M(-1), m: t }];
+}
+MOVES.push(
+  { id: 'trucht', dose: 'Według bloku', load: 'Spokojnie: da się rozmawiać', cam: { az: 12, el: 8 }, path: false, seq: runCycle(0.75, 0.7), rep: 0 },
+  { id: 'bieg-szybko', dose: 'Według bloku', load: 'Mocno, ale równo', cam: { az: 12, el: 8 }, path: false, seq: runCycle(1.15, 1), rep: 0 },
+  { id: 'marsz', dose: 'Według bloku', load: 'Spokojny oddech', cam: { az: 12, el: 8 }, path: false, seq: walk({}), rep: 0 }
+);
 const zw15 = Object.assign({}, MOVES[1], { id: 'zwis-15' });
 delete zw15._tl; delete zw15._vb;
 MOVES.splice(2, 0, zw15);
