@@ -233,6 +233,13 @@ function toast(text) {
   toastTimer = setTimeout(() => { t.classList.remove('show'); setTimeout(() => { t.hidden = true; }, 300); }, 2800);
 }
 function newBadges(before, after) { return after.badges.filter((b, i) => b.d && !before.badges[i].d); }
+// Awans na poziomie wspinania albo biegania (do komunikatów).
+function levelUps(before, after) {
+  let s = '';
+  if (after.climb.i > before.climb.i) s += ' · wspinanie: nowy poziom ' + after.climb.name;
+  if (after.run.i > before.run.i) s += ' · bieganie: nowy poziom ' + after.run.name;
+  return s;
+}
 // Nowe wyzwania i rekordy między dwoma stanami postępu (do komunikatów po zapisie).
 function newWins(before, after) {
   const ch = {}, rec = {};
@@ -249,7 +256,7 @@ function withGain(fn, label) {
   const nb = newBadges(before, prog);
   let msg = label || '';
   if (gain > 0) msg += (msg ? ' · ' : '') + '+' + gain + ' pkt';
-  if (prog.grade.i > before.grade.i) msg += ' · nowy poziom ' + prog.grade.name;
+  msg += levelUps(before, prog);
   if (nb.length) msg += ' · odznaka: ' + nb.map(b => b.name).join(', ');
   if (msg) toast(msg);
 }
@@ -554,7 +561,7 @@ function saveLog() {
   commit();
   const gain = prog.total - before.total;
   const nb = newBadges(before, prog);
-  toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + winsText(newWins(before, prog)) + (prog.grade.i > before.grade.i ? ' · nowy poziom ' + prog.grade.name : '') + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
+  toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + winsText(newWins(before, prog)) + levelUps(before, prog) + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
   showTab(back, { scroll: false });
 }
 function openEditor(draft) {
@@ -713,6 +720,12 @@ document.addEventListener('change', e => {
   else if (n.name === 'snd') setMode(n.value);
   else if (n.id === 'w-add-date') { ui.wDate = n.value; paintAddHint(); }
   else if (n.id === 'bk-file') readBackupFile(n.files && n.files[0]);
+  else if (n.id === 'lv-climb' || n.id === 'lv-run') {
+    if (n.id === 'lv-climb') state.climbBase = n.value; else state.runBase = +n.value;
+    state.levelsAt = now();
+    commit();
+    toast(n.id === 'lv-climb' ? 'Wspinanie zaczyna się od ' + n.value : 'Bieganie zaczyna się od: ' + PL.RUN_LEVELS[+n.value][0]);
+  }
   else if (n.id === 'lg-b' && ui.lg) { ui.lg.b = n.value; ui.lg.err = ''; renderPanel('wpis'); }
   else if (n.id === 'lg-date' && ui.lg) ui.lg.d = n.value;
   else if (n.id === 'lg-grade' && ui.lg) ui.lg.f.grade = n.value;
@@ -1194,9 +1207,13 @@ function paintGain() {
   }
   $('dn-gain').textContent = '+' + gain;
   $('dn-why').innerHTML = lines.map(l => `<li><span>${V.esc(l[0])}</span><b>${V.esc(l[1])}</b></li>`).join('');
-  const g = after.grade;
-  $('dn-level').innerHTML = (g.i > before.grade.i ? `<p class="dn-up">Nowy poziom ${V.gtag(g.name, 'lg')}</p>` : '') +
-    `<div class="dn-grade">${V.gtag(g.name)}<div>${V.bar(g.pct)}<p>${V.gradeLine(g)}</p></div></div>`;
+  // poziom tego rodzaju treningu (wspinanie: wspinanie, palce, siła; bieganie: bieg); rehabilitacja: tylko suma punktów
+  const tr = P.session.track, kind = tr === 'bieg' ? 'run' : (tr === 'wspin' || tr === 'palce' || tr === 'sila') ? 'climb' : '';
+  if (kind) {
+    const l = after[kind], tag = kind === 'climb' ? V.gtag(l.name) : V.rtag(l.short);
+    $('dn-level').innerHTML = (l.i > before[kind].i ? `<p class="dn-up">${kind === 'climb' ? 'Wspinanie' : 'Bieganie'}: nowy poziom ${kind === 'climb' ? V.gtag(l.name, 'lg') : V.rtag(l.short, 'lg')}</p>` : '') +
+      `<div class="dn-grade">${tag}<div>${V.bar(l.pct)}<p>${V.levelLine(l)}</p></div></div>`;
+  } else $('dn-level').innerHTML = `<p class="dn-tot">Razem ${after.total} pkt</p>`;
   const nb = newBadges(before, after);
   $('dn-badges').innerHTML = nb.length ? '<p class="dn-bh">Nowa odznaka</p><ul>' + nb.map(b => `<li><b>${V.esc(b.name)}</b> ${V.esc(b.desc)}</li>`).join('') + '</ul>' : '';
 }

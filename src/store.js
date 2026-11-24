@@ -89,6 +89,7 @@ function mergeBlocks(out, other) {
     if (!y || at(x) > at(y)) (out.blog[day] = out.blog[day] || {})[k] = clone(x);
   }));
   if ((other.weekAt || 0) > (out.weekAt || 0)) { out.week = other.week ? clone(other.week) : null; out.weekAt = other.weekAt; }
+  if ((other.levelsAt || 0) > (out.levelsAt || 0)) { out.climbBase = other.climbBase; out.runBase = other.runBase; out.levelsAt = other.levelsAt; }
   return out;
 }
 
@@ -143,6 +144,9 @@ function sanitize(o, fallbackDay) {
   if (typeof o.weightGoal === 'number' && o.weightGoal >= 25 && o.weightGoal <= 300) d.weightGoal = Math.round(o.weightGoal * 10) / 10;
   d.weightGoalAt = +o.weightGoalAt || 0;
   sanitizeBlocks(o, d);
+  if (PL.GRADES.some(g => g[0] === o.climbBase)) d.climbBase = o.climbBase;
+  if (o.runBase >= 0 && o.runBase < PL.RUN_LEVELS.length) d.runBase = Math.round(o.runBase);
+  d.levelsAt = +o.levelsAt || 0;
   d.updated = +o.updated || 0;
   return d;
 }

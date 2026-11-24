@@ -49,7 +49,7 @@ async function open(browser, o) {
     await go(page, 'plan');
     await page.screenshot({ path: OUT + 'v2-04-plan.png', fullPage: true });
     const hdr = (await page.textContent('#hdr-prog')).replace(/\s+/g, ' ').trim();
-    check('1 all pages open; header shows grade and points', (await page.getAttribute('#tb-wiecej', 'aria-selected')) === 'true' && (await page.isVisible('#plan-in .card')) && /^4a/.test(hdr) && /pkt/.test(hdr), hdr);
+    check('1 all pages open; header shows both levels and points', (await page.getAttribute('#tb-wiecej', 'aria-selected')) === 'true' && (await page.isVisible('#plan-in .card')) && /^6a/.test(hdr) && /Start/.test(hdr) && /pkt/.test(hdr), hdr);
     await page.focus('#tb-wiecej'); await page.keyboard.press('ArrowLeft'); await page.clock.runFor(100);
     check('1 arrow keys move along the tab bar from a sub page', (await page.getAttribute('#tb-postep', 'aria-selected')) === 'true');
     await ctx.close();

@@ -56,6 +56,7 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
   weight: { 'YYYY-MM-DD': { kg, at } | { del: true, at } }, weightGoal: null | kg, weightGoalAt: ms | 0,
   blocks: { id: block | { del, at } }, week: null | { 0..6: [blockId] }, weekAt: ms | 0,
   days: { 'YYYY-MM-DD': { items: [ { k, b, skip? } ], at } }, blog: { 'YYYY-MM-DD': { k: entry | { del, at } } },
+  climbBase: grade (default '6a'), runBase: 0..15, levelsAt: ms | 0,
   updated: ms }
 ```
 

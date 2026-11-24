@@ -55,11 +55,27 @@ function gradeLine(g) {
 }
 
 // ---------- nagłówek ----------
+// Poziom biegania: etykieta w stylu wyceny, w kolorze biegu.
+const rtag = (name, cls) => `<span class="gtag rtag${cls ? ' ' + cls : ''}"><span>${esc(name)}</span></span>`;
 function headChip(prog) {
-  const g = prog.grade;
-  return `<button type="button" class="hp" data-act="tab" data-v="postep" aria-label="Poziom ${esc(g.name)}, ${prog.total} pkt, ${dni(prog.streak)} z rzędu. Otwórz postęp">` +
-    gtag(g.name) + `<span class="hp-pts"><b>${prog.total}</b> pkt</span>` +
+  const c = prog.climb, r = prog.run;
+  return `<button type="button" class="hp" data-act="tab" data-v="postep" aria-label="Wspinanie ${esc(c.name)}, bieganie ${esc(r.name)}, ${prog.total} pkt, ${dni(prog.streak)} z rzędu. Otwórz postęp">` +
+    gtag(c.name) + rtag(r.short) + `<span class="hp-pts"><b>${prog.total}</b> pkt</span>` +
     `<span class="hp-streak${prog.streak ? '' : ' is-zero'}">${ICON.flame}${prog.streak}</span></button>`;
+}
+function levelLine(l) { return l.top ? 'Najwyższy poziom' : `Jeszcze <b>${l.toNext} pkt</b> do ${esc(l.next)}`; }
+// Prawdziwa forma: wspinanie z najtrudniejszej drogi w 30 dni, bieganie z przewidywanego półmaratonu.
+const HM_GOAL = 80 * 60;
+function climbFormText(st, today) {
+  const f = BLK() && BLK().climbForm(st, today);
+  return f ? `Forma: najtrudniejsza droga w 30 dni <b>${esc(f.grade)}</b> (${esc(relDay(f.d, today))})` : 'Forma: zapisz wspinanie z wyceną najtrudniejszej drogi.';
+}
+function runFormText(st, today) {
+  const f = BLK() && BLK().runForm(st, today);
+  if (!f) return 'Forma: zapisz bieg od 3 km z czasem, a policzę przewidywany półmaraton.';
+  const gap = f.hm - HM_GOAL;
+  return `Forma: przewidywany półmaraton <b>${BLK().fmtDur(f.hm)}</b>` + (gap > 0 ? `, do 1:20 brakuje ${BLK().fmtDur(gap)}` : ', cel 1:20 w zasięgu') +
+    ` <small>(z biegu ${BLK().fmtKm(f.km)} km w ${BLK().fmtDur(f.sec)}, ${esc(relDay(f.d, today))})</small>`;
 }
 
 // ---------- Dziś ----------
@@ -134,8 +150,11 @@ ${state}${wait}
   if (notes.length) h += '<ul class="notes">' + notes.map(n => `<li><span class="note-tag">${esc(n.tag)}</span>${esc(n.text)}</li>`).join('') + '</ul>';
 
   // mini postęp
-  const g = prog.grade;
-  h += `<section class="mini card" aria-label="Twój postęp">${gtag(g.name, 'lg')}<div class="mini-main"><p class="mini-top"><b>${prog.total} pkt</b><span class="mini-streak${prog.streak ? '' : ' is-zero'}">${ICON.flame}${dni(prog.streak)} z rzędu</span></p>${bar(g.pct)}<p class="mini-next">${gradeLine(g)}</p></div><button type="button" class="chip-btn" data-act="tab" data-v="postep">Postęp</button></section>`;
+  const lc = prog.climb, lr = prog.run;
+  h += `<section class="mini card" aria-label="Twoje poziomy"><div class="mini-main"><p class="mini-top"><b>${prog.total} pkt</b><span class="mini-streak${prog.streak ? '' : ' is-zero'}">${ICON.flame}${dni(prog.streak)} z rzędu</span></p>` +
+    `<div class="mini-lv">${gtag(lc.name)}<div><p class="mini-k">Wspinanie</p>${bar(lc.pct)}<p class="mini-next">${levelLine(lc)}</p></div></div>` +
+    `<div class="mini-lv">${rtag(lr.short)}<div><p class="mini-k">Bieganie</p>${bar(lr.pct, 'run')}<p class="mini-next">${levelLine(lr)}</p></div></div></div>` +
+    `<button type="button" class="chip-btn" data-act="tab" data-v="postep">Postęp</button></section>`;
 
   // tydzień
   const base = dp.practice ? st.start : today;
@@ -206,10 +225,12 @@ function painChartHTML(st, today) {
   return s + '</svg><p class="pc-key">Zielone pole to bezpieczny zakres w trakcie ćwiczeń: ból do 3/10.</p>';
 }
 function progressHTML(st, today, prog) {
-  const g = prog.grade;
+  const lc = prog.climb, lr = prog.run;
   const top = PL.GRADES.findIndex(x => x[0] === '7c');
-  let h = `<header class="t-head"><p class="eyebrow">Postęp</p><h1 class="t-title">Droga do 7c</h1></header>`;
-  h += `<section class="hero card">${gtag(g.name, 'xl')}<div class="hero-main"><p class="eyebrow">Twój poziom</p><p class="hero-pts"><b>${prog.total}</b> pkt</p>${bar(g.pct, 'lg')}<p class="hero-next">${gradeLine(g)}. Punkty dają rehabilitacja i każdy blok treningowy.</p></div></section>`;
+  let h = `<header class="t-head"><p class="eyebrow">Postęp</p><h1 class="t-title">Droga do 7c i 1:20</h1></header>`;
+  h += `<div class="lvls"><section class="hero card lvl">${gtag(lc.name, 'xl')}<div class="hero-main"><p class="eyebrow">Wspinanie</p><p class="hero-pts"><b>${lc.pts}</b> pkt</p>${bar(lc.pct, 'lg')}<p class="hero-next">${levelLine(lc)}</p><p class="lvl-form">${climbFormText(st, today)}</p></div></section>` +
+    `<section class="hero card lvl lvl-run">${rtag(lr.short, 'xl')}<div class="hero-main"><p class="eyebrow">Bieganie · ${esc(lr.name)}</p><p class="hero-pts"><b>${lr.pts}</b> pkt</p>${bar(lr.pct, 'lg run')}<p class="hero-next">${levelLine(lr)}</p><p class="lvl-form">${runFormText(st, today)}</p></div></section></div>`;
+  h += `<p class="lvl-note">Razem <b>${prog.total} pkt</b>. Poziom wspinania rośnie za wspinanie, palce i siłę, biegania za biegi (z ich wyzwaniami i rekordami). Rehabilitacja, rozciąganie i serie dni liczą się do sumy. Poziomy startowe zmienisz w Ustawieniach.</p>`;
   const hrs = Math.floor(prog.minutes / 60), mins = prog.minutes % 60;
   const all = prog.sessions + (prog.blocks || 0);
   h += `<div class="stats"><div class="stat"><b>${all}</b><span>${plural(all, 'trening', 'treningi', 'treningów')}</span></div><div class="stat"><b>${prog.streak}</b><span>dni z rzędu</span></div><div class="stat"><b>${prog.best}</b><span>najdłuższa seria dni</span></div><div class="stat"><b>${hrs ? hrs + ' h ' : ''}${mins} min</b><span>czasu treningu</span></div></div>`;
@@ -220,12 +241,19 @@ function progressHTML(st, today, prog) {
     h += `<div class="stats stats-3"><div class="stat"><b>${BLK().fmtKm(prog.km || 0)}</b><span>km biegu łącznie</span></div><div class="stat"><b>${prog.climbs || 0}</b><span>${plural(prog.climbs || 0, 'wspinanie', 'wspinania', 'wspinań')}</span></div><div class="stat"><b>${(prog.chDone || []).length}</b><span>zaliczone wyzwania</span></div></div>`;
     if (API.challengesHTML) h += `<h2 class="sub-h">Wyzwania tygodnia</h2>${API.challengesHTML(BLK().challenges(st, BLK().weekStart(today)), {})}<h2 class="sub-h">Rekordy</h2>${API.recordsHTML(st, today)}`;
   }
-  // droga: wyceny od 4a do 7c
-  h += `<div class="route" role="img" aria-label="Poziom ${esc(g.name)} na drodze od 4a do 7c">`;
-  for (let i = 0; i <= top; i++) {
+  // drogi: wspinanie od poziomu startowego do 7c, bieganie od startu do 1:20
+  const cFrom = lc.base, cTo = Math.max(top, lc.i);
+  h += `<h2 class="sub-h">Droga wspinania</h2><div class="route" style="--n:${cTo - cFrom + 1}" role="img" aria-label="Wspinanie: poziom ${esc(lc.name)} na drodze od ${esc(PL.GRADES[cFrom][0])} do ${esc(PL.GRADES[cTo][0])}">`;
+  for (let i = cFrom; i <= cTo; i++) {
     const nm = PL.GRADES[i][0];
-    const f = i < g.i ? 1 : i === g.i ? (i === top ? 1 : g.pct) : 0;
-    h += `<span class="rs ${PL.gradeBand(nm)}${i === g.i ? ' cur' : ''}${i < g.i ? ' done' : ''}"><i style="width:${Math.round(f * 100)}%"></i><em>${esc(nm)}</em></span>`;
+    const f = i < lc.i ? 1 : i === lc.i ? (lc.top ? 1 : lc.pct) : 0;
+    h += `<span class="rs ${PL.gradeBand(nm)}${i === lc.i ? ' cur' : ''}${i < lc.i ? ' done' : ''}"><i style="width:${Math.round(f * 100)}%"></i><em>${esc(nm)}</em></span>`;
+  }
+  h += '</div>';
+  h += `<h2 class="sub-h">Droga biegania</h2><div class="route route-run" style="--n:${PL.RUN_LEVELS.length - lr.base}" role="img" aria-label="Bieganie: poziom ${esc(lr.name)} na drodze do 1:20">`;
+  for (let i = lr.base; i < PL.RUN_LEVELS.length; i++) {
+    const f = i < lr.i ? 1 : i === lr.i ? (lr.top ? 1 : lr.pct) : 0;
+    h += `<span class="rs rr${i === lr.i ? ' cur' : ''}${i < lr.i ? ' done' : ''}"><i style="width:${Math.round(f * 100)}%"></i><em>${esc(PL.RUN_LEVELS[i][1])}</em></span>`;
   }
   h += '</div>';
   // odznaki
@@ -597,6 +625,10 @@ function settingsHTML(st, today, ui, sync) {
       `<div class="choices"><button type="button" class="chip-btn primary" data-act="bk-apply">Wczytaj</button><button type="button" class="chip-btn" data-act="bk-cancel">Anuluj</button></div></div>`;
   }
   h += '</section>';
+  // poziomy startowe
+  h += `<section class="card form" id="poziomy"><h2>Poziomy startowe</h2><p>Poziom, od którego liczy się Twoja droga. Zmiana nie kasuje punktów.</p><div class="row">` +
+    `<label class="fld sm"><span>Wspinanie</span><select id="lv-climb">${PL.GRADES.map(g => `<option${g[0] === st.climbBase ? ' selected' : ''}>${g[0]}</option>`).join('')}</select></label>` +
+    `<label class="fld sm"><span>Bieganie</span><select id="lv-run">${PL.RUN_LEVELS.map((r, i) => `<option value="${i}"${i === (st.runBase | 0) ? ' selected' : ''}>${esc(r[0])}</option>`).join('')}</select></label></div></section>`;
   // dźwięk
   const snd = ui.sound;
   h += `<section class="card form"><h2>Dźwięk w trakcie treningu</h2><fieldset class="radios"><legend class="sr-only">Dźwięk</legend>
@@ -610,7 +642,7 @@ function settingsHTML(st, today, ui, sync) {
   return h;
 }
 
-const API = { headChip, todayHTML, journalHTML, cap, dayMon, plural, subHead, tape, progressHTML, weightHTML, weightChart, weightReadout, planHTML, moreHTML, settingsHTML, gtag, bar, gradeLine, dni, painLevel, kg1, relDay, ICON, esc };
+const API = { rtag, levelLine, headChip, todayHTML, journalHTML, cap, dayMon, plural, subHead, tape, progressHTML, weightHTML, weightChart, weightReadout, planHTML, moreHTML, settingsHTML, gtag, bar, gradeLine, dni, painLevel, kg1, relDay, ICON, esc };
 G.VIEWS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

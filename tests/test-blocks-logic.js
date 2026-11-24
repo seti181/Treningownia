@@ -84,6 +84,26 @@ check('records: week km beaten once when a week passes the best earlier week', r
 const prr = PL.progress(rs, '2026-12-03');
 check('record points: +10 each, badge', prr.recordEvents.length === rw.events.length && prr.badges.find(b => b.id === 'rekord1').d === '2026-11-25');
 
+// poziomy: wspinanie i bieganie osobno
+const lv = PL.defaults(MON), lg = id => BL.getBlock(lv, id);
+let lp = PL.progress(lv, MON);
+check('levels: climbing starts at 6a, running at Start', lp.climb.name === '6a' && lp.run.name === 'Start' && lp.climb.toNext === 120);
+BL.logBlock(lv, MON, 'p0-bieg-spokojny', lg('bieg-spokojny'), { km: 6, sec: 2160, rpe: 4 }, at(1));
+BL.logBlock(lv, '2026-11-24', 'p1-wspinanie', lg('wspinanie'), { grade: '6a', routes: 10, rpe: 6 }, at(2));
+BL.logBlock(lv, '2026-11-25', 'p1-rozc-bieg', lg('rozc-bieg'), {}, at(3));
+lp = PL.progress(lv, '2026-11-25');
+check('levels: climbing gets climbing points only, running gets runs only, stretching and the 3-day streak only the total', lp.climb.pts === 17 && lp.run.pts === 17 && lp.total === 17 + 17 + 6 + 10, lp.climb.pts + ' / ' + lp.run.pts + ' / ' + lp.total);
+const lad = PL.ladder(PL.RUN_LEVELS, PL.RUN_STEP, 0, 100);
+check('ladder: 100 running points = Start (40) + Truchtacz (60) -> Biegacz, 90 to go', lad.name === 'Biegacz' && lad.toNext === 90 && lad.pct === 0, JSON.stringify(lad));
+check('ladder: the last level is the top', PL.ladder(PL.RUN_LEVELS, PL.RUN_STEP, 0, 1e6).name === '1:20' && PL.ladder(PL.RUN_LEVELS, PL.RUN_STEP, 0, 1e6).top);
+check('climb form: hardest grade in 30 days', BL.climbForm(lv, '2026-11-25').grade === '6a' && !BL.climbForm(lv, '2027-01-30'));
+const rf = BL.runForm(lv, '2026-11-25');
+check('run form: Riegel half-marathon prediction (6 km in 36:00 -> 2:16:30)', rf && Math.abs(rf.hm - Math.round(2160 * Math.pow(21.0975 / 6, 1.06))) <= 1 && BL.fmtDur(rf.hm) === '2:16:30', rf && BL.fmtDur(rf.hm));
+lv.climbBase = '6b'; lv.levelsAt = at(9);
+check('starting level: climbing from 6b', PL.progress(lv, '2026-11-25').climb.name === '6b');
+const lv2 = S.merge(S.sanitize(JSON.parse(JSON.stringify(lv)), MON), S.sanitize({}, MON));
+check('starting levels sync with the later change', lv2.climbBase === '6b');
+
 // biblioteka: edycja wbudowanego, kopia, własny blok, usunięcie
 const ed = JSON.parse(JSON.stringify(g('palce-20'))); ed.items[1].sets = 5;
 BL.saveBlock(st, ed, at(20));

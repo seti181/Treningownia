@@ -341,6 +341,32 @@ function records(all) {
   return { best, events };
 }
 
+// ---------- prawdziwa forma ----------
+// Wspinanie: najtrudniejsza zapisana droga z ostatnich 30 dni.
+function climbForm(st, today) {
+  const from = PL.addDays(today, -29);
+  let best = null;
+  entries(st).forEach(x => {
+    if (x.e.t !== 'wspin' || !x.e.grade || x.d < from || x.d > today) return;
+    const i = GRADE_LIST.indexOf(x.e.grade);
+    if (!best || i > best.i) best = { i, grade: x.e.grade, d: x.d };
+  });
+  return best;
+}
+// Bieganie: przewidywany półmaraton (wzór Riegela: T2 = T1 * (D2 / D1) ^ 1,06) z najlepszego biegu od 3 km w ostatnich 60 dniach.
+const HM = 21.0975;
+function runForm(st, today) {
+  const from = PL.addDays(today, -59);
+  let best = null;
+  entries(st).forEach(x => {
+    const e = x.e;
+    if (e.t !== 'bieg' || !(e.km >= 3) || !e.sec || x.d < from || x.d > today) return;
+    const hm = e.sec * Math.pow(HM / e.km, 1.06);
+    if (!best || hm < best.hm) best = { hm: Math.round(hm), km: e.km, sec: e.sec, d: x.d };
+  });
+  return best;
+}
+
 // ---------- czas, dystans, tempo ----------
 const pad = n => (n < 10 ? '0' : '') + n;
 function fmtDur(sec) {
@@ -375,7 +401,7 @@ const API = {
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
-  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex
+  challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

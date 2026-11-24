@@ -141,7 +141,7 @@ function defaults(today) {
   return {
     v: 3, epoch: 0, start: d, phase: 1, phaseStart: d, dayOffset: 0, rung: 1, rungGreen: 0,
     snooze: null, breakAck: null, gates: {}, log: {}, morning: {}, events: [], weight: {}, weightGoal: null, weightGoalAt: 0,
-    blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, updated: 0
+    blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, climbBase: '6a', runBase: 0, levelsAt: 0, updated: 0
   };
 }
 function hasLog(st, d) { const l = st.log[d]; return !!l && Object.keys(l).some(k => l[k] && l[k].done); }
@@ -221,7 +221,8 @@ function actRestart(st, date, wipe, now) {
   if (wipe) {
     // pomiary wagi, cel i bloki treningowe (biblioteka, tydzień, dziennik) zostają: to nie jest historia planu rehabilitacji
     const keep = { weight: st.weight || {}, weightGoal: st.weightGoal == null ? null : st.weightGoal, weightGoalAt: st.weightGoalAt || 0,
-      blocks: st.blocks || {}, week: st.week || null, weekAt: st.weekAt || 0, days: st.days || {}, blog: st.blog || {} };
+      blocks: st.blocks || {}, week: st.week || null, weekAt: st.weekAt || 0, days: st.days || {}, blog: st.blog || {},
+      climbBase: st.climbBase || '6a', runBase: st.runBase || 0, levelsAt: st.levelsAt || 0 };
     const fresh = defaults(date);
     Object.keys(st).forEach(k => { delete st[k]; });
     Object.assign(st, fresh, keep, { epoch: now || Date.now() });
@@ -350,7 +351,7 @@ function progress(st, today) {
   const award = (id, d) => { if (!earned[id]) earned[id] = d; };
   const byEntry = {}, byDay = {}, weeks = {};
   let total = 0, sessions = 0, seconds = 0, painN = 0, run = 0, best = 0, prev = null;
-  let blocks = 0, runs = 0, climbs = 0, fingers = 0, km = 0, fullWeeks = 0;
+  let blocks = 0, runs = 0, climbs = 0, fingers = 0, km = 0, fullWeeks = 0, climbPts = 0, runPts = 0;
   const addDay = (d, p) => { byDay[d] = (byDay[d] || 0) + p; total += p; };
   days.forEach(d => {
     const l = st.log[d] || {};
@@ -358,6 +359,8 @@ function progress(st, today) {
       const p = BL.entryPoints(x.e);
       byEntry[d + '|b:' + x.k] = p;
       addDay(d, p);
+      if (CLIMB_T[x.e.t]) climbPts += p;
+      if (x.e.t === 'bieg') runPts += p;
       blocks += 1; seconds += x.e.dur || 0;
       if (x.e.t === 'bieg') {
         runs += 1;
@@ -400,12 +403,16 @@ function progress(st, today) {
   if (BL) Object.keys(weeks).sort().forEach(w => BL.challenges(st, w, bent).forEach(c => { if (c.done) chDone.push({ id: c.id, name: c.name, d: c.doneDay, pts: c.pts, week: w }); }));
   chDone.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)).forEach((c, i) => {
     addDay(c.d, c.pts); byEntry[c.d + '|ch:' + c.id] = (byEntry[c.d + '|ch:' + c.id] || 0) + c.pts;
+    if (CH_TRACK[c.id] === 'climb') climbPts += c.pts;
+    if (CH_TRACK[c.id] === 'run') runPts += c.pts;
     if (i === 0) award('wyzwanie1', c.d);
     if (i === 9) award('wyzwania10', c.d);
     if (c.id === 'pelny') { fullWeeks += 1; award('tydzien', c.d); }
   });
   recordEvents.forEach((r, i) => {
     addDay(r.d, r.pts); byEntry[r.d + '|rec:' + r.id + ':' + r.k] = r.pts;
+    if (REC_TRACK[r.id] === 'climb') climbPts += r.pts;
+    if (REC_TRACK[r.id] === 'run') runPts += r.pts;
     if (i === 0) award('rekord1', r.d);
     if (i === 9) award('rekord10', r.d);
   });
@@ -421,10 +428,37 @@ function progress(st, today) {
   return {
     total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best,
     blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks, chDone, recordEvents,
+    climb: climbLevel(st, climbPts), run: runLevel(st, runPts),
     badges: BADGES.map(b => Object.assign({}, b, { d: earned[b.id] || null })), byEntry, byDay
   };
 }
 const gradeBand = g => 'g' + g.charAt(0);
+
+// ---------- poziomy: wspinanie i bieganie ----------
+// Wspinanie: wyceny dróg; punkty za wspinanie, palce i siłę (oraz ich wyzwania i rekordy). Start od poziomu, który ustawiasz
+// (climbBase), każdy kolejny stopień kosztuje trochę więcej. Pełny tydzień daje ok. 100 pkt, 6a -> 7c to ok. 2300 pkt.
+const CLIMB_STEP = [40, 50, 60, 70, 80, 100, 120, 150, 170, 190, 210, 240, 270, 300, 330, 360, 400, 450];
+// Bieganie: nazwane stopnie aż do celu 1:20 w półmaratonie; punkty za biegi (oraz ich wyzwania i rekordy).
+// Nazwy to stopnie gry, nie zmierzony czas: prawdziwą formę pokazuje osobna linia (przewidywany półmaraton).
+const RUN_LEVELS = [
+  ['Start', 'Start'], ['Truchtacz', 'Trucht'], ['Biegacz', 'Biegacz'], ['5 km', '5 km'], ['10 km', '10 km'], ['15 km', '15 km'],
+  ['Półmaraton', 'Półmar.'], ['1:55', '1:55'], ['1:50', '1:50'], ['1:45', '1:45'], ['1:40', '1:40'], ['1:35', '1:35'],
+  ['1:30', '1:30'], ['1:25', '1:25'], ['1:22', '1:22'], ['1:20', '1:20']
+];
+const RUN_STEP = [40, 60, 90, 120, 160, 220, 300, 400, 500, 600, 700, 800, 900, 1000, 1100];
+const CLIMB_T = { wspin: 1, palce: 1, sila: 1 };
+const CH_TRACK = { km: 'run', dlugi: 'run', palce2: 'climb', sila2: 'climb', drogi: 'climb' };
+const REC_TRACK = { km: 'run', tempo5: 'run', tempo10: 'run', tydzien: 'run', grade: 'climb', drogi: 'climb' };
+// Stopień na drabince: start na base, potem kolejne progi z steps.
+function ladder(names, steps, base, pts) {
+  let i = Math.max(0, Math.min(names.length - 1, base)), left = Math.max(0, pts);
+  while (i < names.length - 1 && left >= steps[i]) { left -= steps[i]; i++; }
+  const last = i >= names.length - 1, need = last ? 0 : steps[i];
+  return { i, base, pts, name: names[i][0], short: names[i][1], next: last ? null : names[i + 1][0], toNext: last ? 0 : need - left, pct: last ? 1 : left / need, top: last };
+}
+const climbBaseIdx = st => { const i = GRADES.findIndex(g => g[0] === st.climbBase); return i < 0 ? GRADES.findIndex(g => g[0] === '6a') : i; };
+const climbLevel = (st, pts) => ladder(GRADES.map(g => [g[0], g[0]]), CLIMB_STEP, climbBaseIdx(st), pts);
+const runLevel = (st, pts) => ladder(RUN_LEVELS, RUN_STEP, Math.max(0, Math.min(RUN_LEVELS.length - 1, st.runBase | 0)), pts);
 
 // ---------- waga ----------
 const r1 = v => Math.round(v * 10) / 10;
@@ -507,6 +541,7 @@ const API = {
   START, PHASES, GATES, NAMES, GRADES, BADGES, SPTS, STREAK, PHASE_PTS, RUNG_PTS, PAIN_PTS, MORNING_PTS, COMEBACK_PTS,
   ymd, parse, addDays, diff, dow, longDate, shortDate, DAYS, DSHORT, MONTHS, defaults, hasLog, isDone, doneDays, phaseDay, lastTraining, breakInfo,
   dayPlan, steps, seconds, repSec, dose, singleSession, entryPoints, gradeOf, gradeBand, progress,
+  CLIMB_STEP, RUN_LEVELS, RUN_STEP, ladder, climbLevel, runLevel,
   weightEntries, weightTrend, weightStats, weightWindow, weightOn, weightGapDay, setWeight, delWeight, setGoal, parseKg,
   addEvent, actAdvance, actBack, actRestart, actSetStage
 };

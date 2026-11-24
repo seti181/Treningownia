@@ -20,6 +20,17 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 - Badges: first run, first climb, first finger session, full week, 50 km, 100 km, 10 climbs, first challenge, 10 challenges, first record, 10 records.
 - Points are computed from the log in `PLAN.progress()` (which reads `BLOCKS.entries()`), never stored. The grade path on Postęp goes to 7c.
 
+## Levels: climbing and running (`progress().climb`, `progress().run`)
+
+Two separate level paths, plus the total points.
+
+- **Climbing** (`PLAN.climbLevel`): route grades from the starting grade (`climbBase`, default 6a) upwards; each step costs a bit more (`CLIMB_STEP`, 6a → 7c is 2340 points, about 23 full weeks). Points: climbing, finger and strength blocks, the challenges `drogi`, `palce2`, `sila2`, and the records for grade and routes.
+- **Running** (`PLAN.runLevel`): named steps from Start to 1:20 (`RUN_LEVELS`, short names for tags; `RUN_STEP`, 6990 points, about 2 years). Points: runs, the challenges `km` and `dlugi`, and the running records. The names are game steps, not measured times.
+- **Total:** everything, including rehab, stretching, the mixed challenges (`pelny`, `dni5`, `plan`, `rozc3`) and the day streak.
+- **Real form**, next to each level on Postęp: climbing = hardest logged grade in the last 30 days (`BLOCKS.climbForm`); running = predicted half marathon from the best run of 3+ km with a time in the last 60 days, by Riegel's formula T2 = T1 · (D2/D1)^1.06, with the gap to 1:20 (`BLOCKS.runForm`).
+- Starting levels are set in Ustawienia → Poziomy startowe (`climbBase`, `runBase`, synced by the later `levelsAt`). Changing them doesn't remove points.
+- Shown in the header (climbing tag, running tag, total points from 560px up, streak), on Dziś (small card with both bars), on Postęp (two level cards, the climbing path and the running path), in toasts ("wspinanie: nowy poziom 6a+") and on the player's done screen (the level of the block's track).
+
 ## Weekly challenges (`BLOCKS.challenges(st, monday)`)
 
 Four per Monday–Sunday week, shown on Dziś (compact), Tydzień (for the week on screen) and Postęp; completed ones earn points on the day they're reached (`progress().chDone`), and appear in Dziennik.
