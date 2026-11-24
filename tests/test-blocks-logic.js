@@ -135,6 +135,26 @@ check('accepted: the test replaces that easy run', names(tr, '2026-11-30') === '
 const cs = S.sanitize(JSON.parse(JSON.stringify(cy)), MON);
 check('cycle and decisions survive sanitize and merge', cs.cycle.build === 3 && Object.keys(cs.props).length === 1 && Object.keys(S.merge(S.sanitize({}, MON), cs).props).length === 1);
 
+// ochrona serii: jeden dzień odpoczynku w tygodniu
+const sh = PL.defaults(MON), sb = BL.getBlock(sh, 'rozc-bieg');
+['2026-11-23', '2026-11-24', '2026-11-26', '2026-11-27'].forEach((d, i) => BL.logBlock(sh, d, 'k' + i, sb, {}, at(i)));
+let sp2 = PL.progress(sh, '2026-11-27');
+check('streak: one rest day in a week keeps it (4 training days -> streak 4)', sp2.streak === 4 && sp2.shields.join() === '2026-11-25', sp2.streak + ' ' + sp2.shields.join());
+BL.logBlock(sh, '2026-11-29', 'k9', sb, {}, at(9));
+sp2 = PL.progress(sh, '2026-11-29');
+check('streak: a second rest day in the same week breaks it', sp2.streak === 1, String(sp2.streak));
+check('streak: still alive the day after a rest day if the week has a shield left', PL.progress(sh, '2026-12-01').streak === 1 && PL.progress(sh, '2026-12-02').streak === 0);
+
+// waga: tempo, prognoza celu, za szybki spadek
+const wt = PL.defaults(MON);
+for (let i = 0; i <= 35; i++) PL.setWeight(wt, PL.addDays('2026-10-20', i), 72 - i * 0.07, at(i));
+PL.setGoal(wt, 56, at(99));
+const wst = PL.weightStats(wt, '2026-11-24');
+check('weight: rate per week (about -0,5 kg) and the goal date', Math.abs(wst.rate + 0.49) < 0.03 && /^202[78]-/.test(wst.eta) && !wst.fast, wst.rate + ' ' + wst.eta);
+const wf = PL.defaults(MON);
+for (let i = 0; i <= 21; i++) PL.setWeight(wf, PL.addDays('2026-11-03', i), 72 - i * 0.15, at(i));
+check('weight: losing over 1% a week for two weeks is flagged', PL.weightStats(wf, '2026-11-24').fast);
+
 // biblioteka: edycja wbudowanego, kopia, własny blok, usunięcie
 const ed = JSON.parse(JSON.stringify(g('palce-20'))); ed.items[1].sets = 5;
 BL.saveBlock(st, ed, at(20));

@@ -240,7 +240,7 @@ function progressHTML(st, today, prog) {
   h += `<p class="lvl-note">Razem <b>${prog.total} pkt</b>. Poziom wspinania rośnie za wspinanie, palce i siłę, biegania za biegi (z ich wyzwaniami i rekordami). Rehabilitacja, rozciąganie i serie dni liczą się do sumy. Poziomy startowe zmienisz w Ustawieniach.</p>`;
   const hrs = Math.floor(prog.minutes / 60), mins = prog.minutes % 60;
   const all = prog.sessions + (prog.blocks || 0);
-  h += `<div class="stats"><div class="stat"><b>${all}</b><span>${plural(all, 'trening', 'treningi', 'treningów')}</span></div><div class="stat"><b>${prog.streak}</b><span>dni z rzędu</span></div><div class="stat"><b>${prog.best}</b><span>najdłuższa seria dni</span></div><div class="stat"><b>${hrs ? hrs + ' h ' : ''}${mins} min</b><span>czasu treningu</span></div></div>`;
+  h += `<div class="stats"><div class="stat"><b>${all}</b><span>${plural(all, 'trening', 'treningi', 'treningów')}</span></div><div class="stat"><b>${prog.streak}</b><span>dni z rzędu (1 dzień odpoczynku w tygodniu nie przerywa)</span></div><div class="stat"><b>${prog.best}</b><span>najdłuższa seria dni</span></div><div class="stat"><b>${hrs ? hrs + ' h ' : ''}${mins} min</b><span>czasu treningu</span></div></div>`;
   if (BLK()) {
     const ws = BLK().weekStats(st, today);
     h += `<h2 class="sub-h">Ten tydzień</h2><section class="card wsum"><dl class="wsum-dl"><div><dt>Biegi</dt><dd><b>${ws.runs}</b>/${BLK().WEEK_RUNS}</dd></div><div><dt>Wspinanie</dt><dd><b>${ws.climbs}</b>/${BLK().WEEK_CLIMBS}</dd></div><div><dt>Kilometry</dt><dd><b>${BLK().fmtKm(ws.km)}</b></dd></div>` +
@@ -433,6 +433,7 @@ function weightHTML(st, today, ui, sync) {
       h += `<div><dt>${reached ? 'cel' : 'do celu'} ${kg1(goal)} kg</dt><dd>${reached ? 'osiągnięty' : kg1(Math.abs(left)) + ' kg'}</dd></div>`;
     }
     h += `</dl></div>`;
+    h += weightPaceHTML(ws);
     if (!win || win.empty) {
       h += `<p class="empty">Brak pomiarów w tym okresie. Ostatni: ${esc(dayMonY(ws.last.d, today))}, ${kg1(ws.last.kg)} kg. Starsze zobaczysz po wybraniu „Wszystko”.</p>`;
     } else {
@@ -522,6 +523,19 @@ function planHTML(st, today, prog, ui, sync) {
   return h;
 }
 
+// Tempo zmian wagi: prognoza celu i łagodna uwaga przy zbyt szybkim spadku (bez kolorów dobrze/źle).
+function weightPaceHTML(ws) {
+  if (!ws) return '';
+  let h = '';
+  if (ws.rate != null) {
+    const r = Math.abs(ws.rate) < 0.05 ? 'bez zmian' : (ws.rate > 0 ? '+' : '\u2212') + kg1(Math.abs(ws.rate)).replace(/,0$/, ',0') + ' kg na tydzień';
+    h += `<p class="w-pace">Tempo: <b>${r}</b>`;
+    if (ws.eta) { const e = PL.parse(ws.eta); h += ` · cel ${kg1(ws.goal)} kg ok. <b>${PL.MONTHS[e.getMonth()]} ${e.getFullYear()}</b>`; }
+    h += '</p>';
+  }
+  if (ws.fast) h += `<div class="alert info"><p>Waga spada szybciej niż ok. 1% masy ciała na tydzień, dwa tygodnie z rzędu. Przy tylu treningach to osłabia regenerację i siłę: zjedz trochę więcej, zwłaszcza białka i węglowodanów wokół treningów.</p></div>`;
+  return h;
+}
 // ---------- Postęp: karta wagi ----------
 function weightCardHTML(st, today) {
   const ws = PL.weightStats(st, today);
@@ -531,6 +545,7 @@ function weightCardHTML(st, today) {
     h += `<dl class="wsum-dl"><div><dt>Średnia z 7 dni</dt><dd><b>${kg1(ws.avg)}</b> kg</dd></div>` +
       (ws.d30 != null ? `<div><dt>w 30 dni</dt><dd>${signedKg(ws.d30)}</dd></div>` : ws.d7 != null ? `<div><dt>w 7 dni</dt><dd>${signedKg(ws.d7)}</dd></div>` : '') +
       (ws.goal != null ? `<div><dt>do celu ${kg1(ws.goal)} kg</dt><dd>${Math.abs(ws.toGoal) < 0.05 ? 'osiągnięty' : kg1(Math.abs(ws.toGoal)) + ' kg'}</dd></div>` : '') + '</dl>';
+    h += weightPaceHTML(ws);
   }
   return h + '<button type="button" class="chip-btn" data-act="tab" data-v="waga">Wykres i pomiary</button></section>';
 }

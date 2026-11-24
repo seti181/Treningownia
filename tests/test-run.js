@@ -12,6 +12,7 @@ const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !ignorable(m.text())) errors.push(m.text()); });
   await page.clock.install({ time: new Date(2026, 10, 30, 7, 0) }); // poniedziałek
+  await page.addInitScript(() => { window.__NO_LEVELUP = true; });
   await page.goto(APP);
   await page.clock.runFor(300);
   const txt = async q => ((await page.textContent(q)) || '').replace(/\s+/g, ' ').trim();
@@ -100,6 +101,27 @@ const errors = [];
     check('4 cycle changed to 4 weeks of build', s3.cycle.build === 4 && /tydzień 1 z 4/.test(await t2('#cykl')));
     await p.locator('#cykl').screenshot({ path: OUT + 'r-06-cycle.png' });
     await c2.close();
+  }
+  // 5) awans: okno z nowym poziomem, zamykane przyciskiem; Escape też zamyka
+  {
+    const c3 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+    const p = await c3.newPage();
+    p.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    await p.clock.install({ time: new Date(2026, 10, 30, 8, 0) });
+    await p.addInitScript(k => {
+      localStorage.setItem(k, JSON.stringify({ start: '2026-11-30', updated: 5, blog: { '2026-11-29': { a: { b: 'bieg-spokojny', t: 'bieg', kind: 'run', name: 'Bieg spokojny', done: true, at: 1, km: 4 } } } }));
+    }, KEY);
+    await p.goto(APP); await p.clock.runFor(300);
+    check('5 no celebration on opening the app', !(await p.isVisible('#lvup')));
+    await p.click('#dzis-in .blk [data-act="b-log"] >> nth=0'); await p.clock.runFor(100);
+    await p.fill('#lg-km', '6'); await p.fill('#lg-time', '38:00'); await p.click('[data-act="lg-set"][data-v="rpe:3"]');
+    await p.click('[data-act="lg-save"]'); await p.clock.runFor(200);
+    const t3 = ((await p.textContent('#lvup')) || '').replace(/\s+/g, ' ');
+    check('5 level up: running, new level Truchtacz, focus on the button', (await p.isVisible('#lvup')) && /Bieganie/.test(t3) && /Trucht/.test(t3) && (await p.evaluate(() => document.activeElement && document.activeElement.dataset.act === 'lvup-close')), t3);
+    await p.screenshot({ path: OUT + 'r-08-levelup.png' });
+    await p.keyboard.press('Escape'); await p.clock.runFor(100);
+    check('5 Escape closes it', !(await p.isVisible('#lvup')));
+    await c3.close();
   }
   await b.close();
   finish(errors);

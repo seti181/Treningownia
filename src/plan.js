@@ -30,6 +30,7 @@ function parse(s) { const a = s.split('-').map(Number); return new Date(a[0], a[
 function addDays(s, n) { const d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
 function diff(a, b) { return Math.round((parse(b) - parse(a)) / 864e5); }
 function dow(s) { return parse(s).getDay(); }
+function monday(s) { return addDays(s, -((dow(s) + 6) % 7)); }
 function longDate(s) { const d = parse(s); return DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; }
 function shortDate(s) { const d = parse(s); return DSHORT[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth() + 1); }
 
@@ -354,6 +355,7 @@ function progress(st, today) {
   const award = (id, d) => { if (!earned[id]) earned[id] = d; };
   const byEntry = {}, byDay = {}, weeks = {};
   let total = 0, sessions = 0, seconds = 0, painN = 0, run = 0, best = 0, prev = null;
+  const shieldUsed = {}, shields = [];
   let blocks = 0, runs = 0, climbs = 0, fingers = 0, km = 0, fullWeeks = 0, climbPts = 0, runPts = 0;
   const addDay = (d, p) => { byDay[d] = (byDay[d] || 0) + p; total += p; };
   days.forEach(d => {
@@ -392,7 +394,8 @@ function progress(st, today) {
     });
     if (isDone(st, d, 'rano') && isDone(st, d, 'wieczor') && !l.rano.partial && !l.wieczor.partial) award('pelny', d);
     if (prev && diff(prev, d) >= 6) { addDay(d, COMEBACK_PTS); award('powrot', d); }
-    run = prev && diff(prev, d) === 1 ? run + 1 : 1;
+    if (prev && diff(prev, d) === 2 && !shieldUsed[monday(addDays(prev, 1))]) { shieldUsed[monday(addDays(prev, 1))] = 1; shields.push(addDays(prev, 1)); run += 1; }
+    else run = prev && diff(prev, d) === 1 ? run + 1 : 1;
     best = Math.max(best, run);
     STREAK.forEach(([n, b]) => { if (run === n) addDay(d, b); });
     if (run === 3) award('dni3', d);
@@ -427,9 +430,10 @@ function progress(st, today) {
     if (ev.k === 'rung' && ev.r >= 2 && !seenR[ev.r]) { seenR[ev.r] = 1; addDay(ev.d, RUNG_PTS); if (ev.r === 5) award('szczebel5', ev.d); }
   });
   const last = days.length ? days[days.length - 1] : null;
-  const alive = last && today && diff(last, today) <= 1;
+  // seria żyje, gdy ostatni trening był dziś lub wczoraj, albo przedwczoraj, jeśli wczorajszy tydzień ma jeszcze dzień odpoczynku
+  const alive = last && today && (diff(last, today) <= 1 || (diff(last, today) === 2 && !shieldUsed[monday(addDays(today, -1))]));
   return {
-    total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best,
+    total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best, shields,
     blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks, chDone, recordEvents,
     climb: climbLevel(st, climbPts), run: runLevel(st, runPts),
     badges: BADGES.map(b => Object.assign({}, b, { d: earned[b.id] || null })), byEntry, byDay
@@ -487,10 +491,21 @@ function weightStats(st, today) {
   let min = es[0], max = es[0];
   es.forEach(e => { if (e.kg < min.kg) min = e; if (e.kg > max.kg) max = e; });
   const goal = typeof st.weightGoal === 'number' ? st.weightGoal : null;
+  const w14 = at(14);
+  // za szybki spadek: średnia z 7 dni spada o ponad 1% masy ciała na tydzień, dwa tygodnie z rzędu
+  const fast = !!(w7 && w14 && (w7.raw - lt.raw) > lt.raw * 0.01 && (w14.raw - w7.raw) > w7.raw * 0.01);
+  // prognoza celu: tempo z 30 dni (albo z tylu dni, ile jest pomiarów, od 14), tylko gdy waga zmierza w stronę celu
+  let rate = null, eta = null;
+  const ref = w30 || (es.length > 1 && diff(tr[0].d, lt.d) >= 14 ? tr[0] : null);
+  if (ref) { const days = diff(ref.d, lt.d); if (days >= 14) rate = r1((lt.raw - ref.raw) / days * 7 * 10) / 10; }
+  if (goal != null && rate && Math.abs(lt.raw - goal) >= 0.3 && Math.sign(goal - lt.raw) === Math.sign(rate)) {
+    const weeks = (goal - lt.raw) / rate;
+    if (weeks > 0 && weeks < 260) eta = addDays(lt.d, Math.round(weeks * 7));
+  }
   return {
     entries: es, trend: tr, last, avg: lt.kg, first: es[0], min, max, goal, today: weightOn(st, today),
     d7: w7 ? r1(lt.kg - w7.kg) : null, d30: w30 ? r1(lt.kg - w30.kg) : null, total: es.length > 1 ? r1(lt.kg - es[0].kg) : null,
-    toGoal: goal == null ? null : r1(lt.kg - goal)
+    toGoal: goal == null ? null : r1(lt.kg - goal), fast, rate, eta
   };
 }
 // Okno wykresu [from, to]: pomiary ze średnią, punkt tuż przed oknem (linia wchodzi z lewej krawędzi) i zmiana średniej.
@@ -542,7 +557,7 @@ function parseKg(s) {
 
 const API = {
   START, PHASES, GATES, NAMES, GRADES, BADGES, SPTS, STREAK, PHASE_PTS, RUNG_PTS, PAIN_PTS, MORNING_PTS, COMEBACK_PTS,
-  ymd, parse, addDays, diff, dow, longDate, shortDate, DAYS, DSHORT, MONTHS, defaults, hasLog, isDone, doneDays, phaseDay, lastTraining, breakInfo,
+  ymd, parse, addDays, diff, dow, monday, longDate, shortDate, DAYS, DSHORT, MONTHS, defaults, hasLog, isDone, doneDays, phaseDay, lastTraining, breakInfo,
   dayPlan, steps, seconds, repSec, dose, singleSession, entryPoints, gradeOf, gradeBand, progress,
   CLIMB_STEP, RUN_LEVELS, RUN_STEP, ladder, climbLevel, runLevel,
   weightEntries, weightTrend, weightStats, weightWindow, weightOn, weightGapDay, setWeight, delWeight, setGoal, parseKg,

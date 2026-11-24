@@ -230,6 +230,9 @@ ${panel('wpis', 'dzis')}
 <p>Animacje pokazują pozycję i kierunek ruchu. Nie zastępują oceny fizjoterapeuty.</p>
 </div></footer>
 <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+<div class="lvup" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-t" hidden><div class="lvup-in">
+<p class="eyebrow" id="lvup-k"></p><h2 id="lvup-t">Nowy poziom</h2><div class="lvup-tag" id="lvup-tag"></div><p class="lvup-x" id="lvup-x"></p>
+<button type="button" class="go" data-act="lvup-close">Dalej</button></div></div>
 ${player}
 ${SCRIPTS.map(f => '<script>\n' + read(f) + '\n</script>').join('\n')}
 </body>

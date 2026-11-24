@@ -194,9 +194,32 @@ function focusIn(q, select) {
   n.focus({ preventScroll: true });
   if (select && n.select) { try { n.select(); } catch (e) { /* brak */ } }
 }
+// Świętowanie awansu (wspinanie, bieganie): po zapisie albo po zamknięciu odtwarzacza; zmiana poziomu startowego nie świętuje.
+let lvSeen = null, lvQuiet = false;
+function checkLevelUp() {
+  const c = prog.climb, r = prog.run;
+  if (!lvSeen || lvQuiet) { lvSeen = { c: c.i, r: r.i }; lvQuiet = false; return; }
+  if (P.open) return;
+  const up = c.i > lvSeen.c ? ['Wspinanie', V.gtag(c.name, 'xl'), 'Jeszcze ' + c.toNext + ' pkt do ' + (c.next || 'końca drogi')] : r.i > lvSeen.r ? ['Bieganie', V.rtag(r.short, 'xl'), r.name + (r.next ? ' · jeszcze ' + r.toNext + ' pkt do ' + r.next : '')] : null;
+  lvSeen = { c: c.i, r: r.i };
+  if (!up || window.__NO_LEVELUP) return; // tylko do testów: bez okna awansu
+  const box = $('lvup');
+  if (!box) return;
+  $('lvup-k').textContent = up[0];
+  $('lvup-tag').innerHTML = up[1];
+  $('lvup-x').textContent = up[2];
+  box.hidden = false;
+  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
+  audioInit();
+  beep('done');
+  const b = box.querySelector('[data-act="lvup-close"]');
+  if (b) b.focus();
+}
+function closeLevelUp() { const box = $('lvup'); if (box && !box.hidden) { box.hidden = true; const t = $('tb-' + topOf(tab)); if (t) t.focus({ preventScroll: true }); } }
 function renderAll() {
   shownDay = today();
   prog = PL.progress(state, shownDay);
+  checkLevelUp();
   if (hdr) hdr.innerHTML = V.headChip(prog);
   Object.keys(stale).forEach(k => { stale[k] = true; });
   if (stale[tab] !== undefined) renderPanel(tab);
@@ -338,6 +361,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled || pl.contains(b)) return;
   const act = b.dataset.act, t = today();
+  if (act === 'lvup-close') { closeLevelUp(); return; }
   if (blockAction(act, b, t)) return;
   switch (act) {
     case 'start': startSession(b.dataset.s, b); break;
@@ -709,6 +733,7 @@ function cancelEdit() {
   focusIn('[data-act="w-edit"]');
 }
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('lvup') && !$('lvup').hidden) { e.preventDefault(); closeLevelUp(); return; }
   if (P.open || e.isComposing || (e.key !== 'Enter' && e.key !== 'Escape')) return;
   const n = e.target;
   const f = n && n.tagName === 'INPUT' && n.closest ? n.closest('form[data-form]') : null;
@@ -748,6 +773,7 @@ document.addEventListener('change', e => {
   else if (n.id === 'lv-climb' || n.id === 'lv-run') {
     if (n.id === 'lv-climb') state.climbBase = n.value; else state.runBase = +n.value;
     state.levelsAt = now();
+    lvQuiet = true;
     commit();
     toast(n.id === 'lv-climb' ? 'Wspinanie zaczyna się od ' + n.value : 'Bieganie zaczyna się od: ' + PL.RUN_LEVELS[+n.value][0]);
   }

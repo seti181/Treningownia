@@ -464,6 +464,20 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .hb-b i { display: block; height: 100%; background: var(--cc); border-radius: 0 4px 4px 0; }
 .hb-n { font-family: var(--mono); font-size: 13px; text-align: right; }
 
+/* ---------- awans ---------- */
+.lvup { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.lvup-in { width: min(100%, 360px); text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 26px 22px 20px; box-shadow: 0 20px 60px -20px rgb(0 0 0 / .35); }
+.lvup-in h2 { font-family: var(--display); font-weight: 700; font-size: 34px; margin: 2px 0 16px; }
+.lvup-tag { margin: 6px 0 14px; }
+.lvup-x { margin: 0 0 18px; color: var(--muted); }
+.lvup.show .lvup-in { animation: lvpop .45s cubic-bezier(.2, 1.4, .4, 1); }
+.lvup.show .lvup-tag .gtag { animation: lvtag .7s .15s both cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes lvpop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lvtag { from { transform: scale(.4) rotate(-8deg); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lvup.show .lvup-in, .lvup.show .lvup-tag .gtag { animation: none; } }
+.w-pace { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.w-pace b { color: var(--ink); font-weight: 600; }
+
 /* ---------- cykl i propozycje ---------- */
 .phase-line { margin: -4px 0 12px; font-size: 14px; color: var(--muted); max-width: 780px; }
 .phase-line b { color: var(--ink); font-weight: 600; }

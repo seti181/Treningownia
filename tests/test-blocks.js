@@ -13,6 +13,7 @@ async function open(b, o) {
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !ignorable(m.text())) errors.push(m.text()); });
   await page.clock.install({ time: new Date(2026, 10, 24, 8, 0) });
+  await page.addInitScript(() => { window.__NO_LEVELUP = true; });
   if (o.seed) await page.addInitScript(s => localStorage.setItem('treningownia-v1', s), JSON.stringify(o.seed));
   await page.goto(APP + (o.hash || ''));
   await page.clock.runFor(300);
