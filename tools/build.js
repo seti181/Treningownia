@@ -174,10 +174,29 @@ const icons = fs.existsSync(path.join(SRC, 'icons')) ? fs.readdirSync(path.join(
 const hasIcon = f => icons.indexOf(f) >= 0;
 if (!icons.length) console.warn('src/icons/ has no PNG icons: run  node tools/icons.js');
 
+// Polityka bezpieczeństwa treści (CSP): wykonują się tylko skrypty z tego buildu (skróty sha256), a dane mogą wyjść
+// tylko do Firebase (logowanie, token, Firestore). Nowy zewnętrzny adres trzeba dopisać tutaj, inaczej przeglądarka go zablokuje.
+const FONT_ONLOAD = "this.media='all'";
+const scriptBodies = SCRIPTS.map(f => '\n' + read(f) + '\n');
+const sha = s => "'sha256-" + crypto.createHash('sha256').update(s, 'utf8').digest('base64') + "'";
+const CSP = [
+  "default-src 'none'",
+  'script-src ' + scriptBodies.map(sha).join(' ') + " 'unsafe-hashes' " + sha(FONT_ONLOAD),
+  "style-src 'unsafe-inline' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com',
+  "img-src 'self'",
+  "manifest-src 'self'",
+  "worker-src 'self'",
+  "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com",
+  "base-uri 'none'",
+  "form-action 'none'"
+].join('; ');
+
 const html = `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${CSP}">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Treningownia</title>
 <meta name="description" content="Plan treningowy, dziennik i postęp">
@@ -186,7 +205,7 @@ const html = `<!doctype html>
 <link rel="manifest" href="manifest.webmanifest">
 ${hasIcon('icon-192.png') ? '<link rel="icon" type="image/png" href="icons/icon-192.png">\n' : ''}${hasIcon('apple-touch-180.png') ? '<link rel="apple-touch-icon" href="icons/apple-touch-180.png">\n' : ''}<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" media="print" onload="${FONT_ONLOAD}">
 <style>
 ${css}
 ${playerCss}
@@ -249,7 +268,7 @@ ${panel('wpis', 'dzis')}
 <p class="eyebrow" id="lvup-k"></p><h2 id="lvup-t">Nowy poziom</h2><div class="lvup-tag" id="lvup-tag"></div><p class="lvup-x" id="lvup-x"></p>
 <button type="button" class="go" data-act="lvup-close">Dalej</button></div></div>
 ${player}
-${SCRIPTS.map(f => '<script>\n' + read(f) + '\n</script>').join('\n')}
+${scriptBodies.map(s => '<script>' + s + '</script>').join('\n')}
 </body>
 </html>
 `;

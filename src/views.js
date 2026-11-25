@@ -2,7 +2,7 @@
 (function (G) {
 'use strict';
 const PL = G.PLAN;
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const pad = n => (n < 10 ? '0' : '') + n;
 const painLevel = p => (p == null ? '' : p <= 3 ? 'ok' : p <= 5 ? 'warn' : 'bad');

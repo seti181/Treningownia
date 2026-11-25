@@ -16,7 +16,8 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 ## Status (24 November 2026)
 
 - Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; the Atlas with search and 10 categories; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts; a route list per climbing session (OS, Flash, RP, Próba); hangboard loads in % of body weight. Details per area in docs/; the table is in docs/roadmap.md.
-- Waiting on the owner: cloud sync (Firebase project), Android app (Capacitor OK and Android Studio), Strava/GPX (a watch), ending rehab (only they decide).
+- Cloud sync: skipped by the owner (25 November 2026). The code stays, switched off (empty src/config.js); data lives on the phone, and the backup file (Ustawienia) is the only copy elsewhere. Don't bring it up again unless the owner does.
+- Waiting on the owner: Android app (Capacitor OK and Android Studio), Strava/GPX (a watch), ending rehab (only they decide).
 - Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), climbing projects, hangboard added weight after rehab.
 - Before each new item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
 
@@ -71,6 +72,8 @@ dist/         build output, not in git
 - UI text: Polish, short, imperative ("Zapisz", "Trzymaj"), no emojis, decimal comma (66,4). Code comments: match the surrounding code (mostly Polish).
 - Keep it one self-contained HTML file (plus the PWA files): no frameworks, bundlers, SDKs or CDNs (Google Fonts is the one optional extra). Firebase is used through its REST APIs. Ask before adding any dependency.
 - Sources must not contain `</script` (the build refuses).
+- The page has a strict Content-Security-Policy (`CSP` in tools/build.js, docs/architecture.md → Security): no inline `on…=` handlers, no `eval`, and a new external address (an API, a font host) must be added there or the browser blocks it. Every string in HTML goes through `esc()`; everything loaded goes through `sanitize()`.
+- Tests and docs use made-up body numbers (for example 70 kg), never the owner's real ones.
 - A new state field goes into `defaults()` (plan.js), `sanitize()` and `merge()` (store.js) in the same change, with a merge test in tests/test-store.js. `sanitize()` keeps only known keys, so a field missing there is wiped on the next save.
 - Deletions that must sync are markers (`{del: true, at}`), not removed keys.
 - Dates are local `YYYY-MM-DD` strings: use the helpers in plan.js (`ymd`, `addDays`, `diff`, `dow`).
@@ -97,7 +100,7 @@ dist/         build output, not in git
 ## Deploy
 
 - **GitHub Pages** is the app: every push to `main` runs .github/workflows/pages.yml, which runs `npm test` and, only if it passes, builds and publishes `dist/web`. The repository must be public (free Pages); personal details stay in CLAUDE.local.md. One-time setup on GitHub: Settings → Pages → Source: GitHub Actions.
-- **Firebase** (sync): the project's `apiKey` and `projectId` live in src/config.js; setup and security rules in docs/sync.md. The API key is not a secret.
+- **Firebase** (sync, not in use: the owner skipped it): the project's `apiKey` and `projectId` live in src/config.js; setup and security rules in docs/sync.md. The API key is not a secret.
 - The old claude.ai artifact (https://claude.ai/artifact/HtiHUjsonGRsj3sad5ZmNY) is retired: the build no longer makes it, and the new app started with fresh data.
 - Rehab plan document (Polish, private Claude doc): https://claude.ai/artifact/1szy4nNPxGoVVRGnDQ9Mgd. Claude Code can't edit it: when a rehab number changes, tell the owner exactly what to change there.
 

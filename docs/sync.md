@@ -1,5 +1,7 @@
 # Account and cloud sync (Firebase)
 
+> Not in use: the owner skipped sync on 25 November 2026. The code is switched off (empty `src/config.js`). This file stays as the guide if that changes.
+
 The app works fully without an account: everything is saved on the device. Signing in adds a copy in the cloud, so the data survives a lost phone and is the same on every device the owner signs in on.
 
 ## Why Firebase, and how it's used
@@ -23,25 +25,44 @@ Status texts (`SYNC` in trainer.js) appear at the bottom of Dziś, Waga, Rehabil
 
 ## One-time setup (the owner, in the Firebase console)
 
+The `apiKey` ends up in the public page, so anyone can call the Firebase APIs with it. Steps 2, 4 and 6 are what keep the data and the free quota the owner's alone: no sign-ups, rules that only let the owner's account in, and a key that only works from the app's address.
+
 1. console.firebase.google.com → create a project (`treningownia`), Google Analytics off.
-2. Build → Authentication → Get started → Sign-in method → Email/Password on (not the e-mail link). Users → Add user (the owner's e-mail and a password). Settings → User actions → untick "Enable create (sign-up)" if it's there, so nobody else can make an account.
+2. Build → Authentication → Get started → Sign-in method → Email/Password on (not the e-mail link).
+   - Users → Add user: the owner's e-mail and a long password used nowhere else. Copy the **User UID** from the users list (needed in step 4).
+   - Settings → User actions: untick **Enable create (sign-up)** and **Enable deletion**, so nobody can make an account with the public key.
+   - Settings → **Email enumeration protection**: on (the default for new projects), so the sign-in doesn't reveal which e-mails exist.
 3. Build → Firestore Database → Create database → Standard edition, location eur3 (Europe) or europe-southwest1 (Madrid), production mode.
-4. Firestore → Rules:
+4. Firestore → Rules: paste these, put the User UID from step 2 in place of `OWNER_UID`, Publish.
 
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       match /users/{uid}/{doc=**} {
-         allow read, write: if request.auth != null && request.auth.uid == uid;
+       // One document, users/<uid>, and only the owner's account may touch it.
+       match /users/{uid} {
+         allow read: if request.auth != null && request.auth.uid == uid && uid == 'OWNER_UID';
+         // Only the two fields the app writes, a text under ~900 KB and a number; no deletes.
+         allow create, update: if request.auth != null && request.auth.uid == uid && uid == 'OWNER_UID'
+           && request.resource.data.keys().hasOnly(['json', 'updated'])
+           && request.resource.data.json is string && request.resource.data.json.size() < 900000
+           && request.resource.data.updated is int;
        }
+       // Everything else is closed (production mode default).
      }
    }
    ```
 
-5. Project settings → Your apps → Web (`</>`) → register (no Hosting) → copy `apiKey` and `projectId` into `src/config.js`, then build and push.
+5. Project settings → Your apps → Web (`</>`) → register (no Hosting) → copy `apiKey` and `projectId` into `src/config.js`, then build and push. Both are public by design; the rules protect the data.
+6. Restrict the key: console.cloud.google.com → the same project → APIs & Services → Credentials → the key named "Browser key (auto created by Firebase)":
+   - Application restrictions → Websites: `https://seti181.github.io/*` and `http://localhost:8080/*` (the preview).
+   - API restrictions → Restrict key: **Identity Toolkit API**, **Token Service API**, **Cloud Firestore API**.
+   - Save; it can take a few minutes to apply. A sign-in from any other site is then refused.
+7. On the phone: Więcej → Ustawienia → sign in, log a weight, and check that the status says synced. In the Firestore console the document `users/<uid>` appears.
 
-Optional later: in Google Cloud console → APIs & Services → Credentials, restrict the API key to the GitHub Pages address (HTTP referrer).
+If the status says "no access" after signing in, the UID in the rules doesn't match the account (step 4). If sign-in says the key is refused, check the website list in step 6.
+
+The page's Content-Security-Policy (tools/build.js) only lets it talk to the three Google endpoints sync uses; a new cloud service needs its address added there.
 
 ## Testing
 

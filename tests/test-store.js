@@ -48,4 +48,7 @@ check('backup: wrong file is refused', !!S.readBackup('{"a":1}', '2026-11-03').e
 check('backup: newer format is refused', /nowszej wersji/.test(S.readBackup(JSON.stringify(Object.assign({}, bk, { format: 9 })), '2026-11-03').error || ''));
 const imp = S.merge(S.sanitize({}, '2026-11-24'), r.state);
 check('backup: importing into an empty device restores everything', S.canon(imp) === S.canon(m));
+// wrogi plik kopii: klucz __proto__ w props nie podmienia prototypu
+const evil = S.sanitize(JSON.parse('{"props":{"__proto__":{"s":"ok","d":"2026-11-01","at":1,"text":"x"},"bieg:a:30":{"s":"no","d":"2026-11-01","at":1}}}'), '2026-11-03');
+check('sanitize: a "__proto__" proposal id is dropped', Object.getPrototypeOf(evil.props) === Object.prototype && evil.props.s === undefined && Object.keys(evil.props).join() === 'bieg:a:30');
 finish([]);

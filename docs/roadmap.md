@@ -33,14 +33,14 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Charts: km per week, longest run, half-marathon trend; grade pyramid, places, hardest grade per month | done | blocks.md |
 | Route list per climbing session (grade and style: OS, Flash, RP, Próba), pyramid by style, OS/flash record | done | blocks.md |
 | Hangboard loads: weight off or added, % of body weight, finger chart, hang records, proposals take 2 kg less off first | done | blocks.md |
-| Cloud sync (Firebase over REST) | built and tested against a fake; waits for the owner's Firebase project | sync.md |
+| Cloud sync (Firebase over REST) | built and tested against a fake; skipped by the owner (2026-11-25), switched off | sync.md |
 
 ## The approved plan of 24 November 2026
 
 Items 1 to 4 are built and live (see the decision log). Item 5 was the "later and conditional" group:
 
 - Done: the "Koniec rehabilitacji" switch (unlocks pulling, maintenance rehab, no shoulder note on climbing). It stays off until the owner says rehab is finished.
-- Waiting on the owner: **cloud sync** (create the Firebase project and send `apiKey` and `projectId`, docs/sync.md); **Android app** (Capacitor: needs the owner's OK for the dependency and Android Studio on the laptop); **Strava/GPX import** (only once there's a watch).
+- Skipped: **cloud sync** (the owner's choice, 2026-11-25; data stays on the phone, backup file for safety). Waiting on the owner: **Android app** (Capacitor: needs the owner's OK for the dependency and Android Studio on the laptop); **Strava/GPX import** (only once there's a watch).
 
 ## Next (to agree with the owner)
 
@@ -82,3 +82,5 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-24: item 5, partly: the "Koniec rehabilitacji" switch and the locked pull-up block; sync, the Android app and Strava wait on the owner.
 - 2026-11-24: Atlas search and categories, at the owner's request: a search box in the sticky bar (name, dose, tips, category; ignores case and Polish letters, matches word stems), the block exercises split into five categories, the animation buttons moved under the intro.
 - 2026-11-24: items 4 and 5 of Next built, with the owner's go: a route list per climbing session (OS, Flash, RP, Próba; grade and count come from the list; points per session unchanged; projects later) and hangboard loads (weight off with feet on the bathroom scale, % of body weight from the nearest weight entry, no added weight while rehab is on, proposals take off 2 kg less first). Fixed: a session under 30 s opened its log form with "0" minutes, which the form then refused.
+- 2026-11-25: security review and fixes: a strict CSP in the page (only the build's scripts run, data only to Firebase), `esc()` also escapes `'`, `sanitize()` drops a `__proto__` proposal id, CI deploy rights only in the deploy job and actions pinned to SHAs, made-up body weights in tests and docs. Firebase setup hardened before it starts: sign-ups and deletion off, rules pinned to the owner's UID with a size limit, the key restricted to the app's address (docs/sync.md).
+- 2026-11-25: cloud sync skipped: losing the phone's data is acceptable to the owner. The sync code stays, switched off (empty `src/config.js`); docs/sync.md keeps the hardened setup in case that changes. The backup file in Ustawienia is the way to keep a copy.

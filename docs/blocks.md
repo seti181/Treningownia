@@ -59,7 +59,7 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 
 - A finger entry from a block with a 20 or 15 mm hang (`hangOf`) stores `mm` and `kg`: negative = weight off (feet on the bathroom scale while hanging: the reading is the weight off), 0 = full body weight, positive = added weight. **Added weight only after "Koniec rehabilitacji"**: the "Dociążenie" choice is hidden while rehab is on.
 - % of body weight = (body weight + kg) / body weight, with the weight logged nearest that day (`bodyKg`, up to 30 days away). Computed when shown, never stored.
-- The player logs the next load by itself (`hangKg`: the newer of the last session on that edge and the block's target `kg`, which a proposal sets); the done screen says it ("Zapisane: odciążenie 10 kg, 86% wagi") with "Zmień obciążenie" / "Dopisz obciążenie", which opens the log form on the load field (live readout "Wisisz na 62 kg z 72 kg: 86% wagi").
+- The player logs the next load by itself (`hangKg`: the newer of the last session on that edge and the block's target `kg`, which a proposal sets); the done screen says it ("Zapisane: odciążenie 10 kg, 86% wagi") with "Zmień obciążenie" / "Dopisz obciążenie", which opens the log form on the load field (live readout "Wisisz na 60 kg z 70 kg: 86% wagi").
 - The Dziś card shows the load for the next session. Records: "Najmocniejszy zwis 20 mm" and "… 15 mm" (`zwis20`, `zwis15`, in % of body weight); losing weight shows up as progress.
 
 ## After rehab (`rehabDone`)

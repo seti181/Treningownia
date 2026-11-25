@@ -156,9 +156,9 @@ check('route list survives sanitize, bad routes dropped', S.canon(clean2.blog) =
 const hb = PL.defaults(MON), hg = id => BL.getBlock(hb, id);
 check('hang: block palce-20 has a 20 mm hold', BL.hangOf(hg('palce-20')).mm === 20 && !BL.hangOf(hg('sila-pompki')));
 check('hang: no default load before the first session', BL.hangKg(hb, hg('palce-20')) === null);
-PL.setWeight(hb, '2026-11-20', 72, at(0));
+PL.setWeight(hb, '2026-11-20', 70, at(0));
 BL.logBlock(hb, MON, 'z1', hg('palce-20'), { rpe: 5, pain: 0, kg: -10, mm: 20 }, at(1));
-check('hang: % of body weight from the nearest weight (72 kg, 10 kg off = 86%)', BL.hangPct(hb, MON, BL.entryOf(hb, MON, 'z1')) === 86 && BL.kgText(-10) === 'odciążenie 10 kg' && BL.kgText(0) === 'pełna waga');
+check('hang: % of body weight from the nearest weight (70 kg, 10 kg off = 86%)', BL.hangPct(hb, MON, BL.entryOf(hb, MON, 'z1')) === 86 && BL.kgText(-10) === 'odciążenie 10 kg' && BL.kgText(0) === 'pełna waga');
 check('hang: next default load = last session', BL.hangKg(hb, hg('palce-20')) === -10);
 BL.logBlock(hb, '2026-11-25', 'z2', hg('palce-20'), { rpe: 6, kg: -10, mm: 20 }, at(2));
 const hp = BL.proposals(hb, '2026-11-25').find(p => /^palce/.test(p.id));

@@ -143,9 +143,9 @@ async function open(b, o) {
   ok('8 after reload everything is still there', (await page.locator('#dzis-in .blk.is-done').count()) === 4);
   await ctx.close();
 
-  // 10) palce z obciążeniem i wspinanie z listą dróg (waga 72 kg)
+  // 10) palce z obciążeniem i wspinanie z listą dróg (waga 70 kg)
   {
-    const seed = { v: 3, epoch: 0, start: '2026-11-01', phase: 1, phaseStart: '2026-11-01', updated: 10, weight: { '2026-11-23': { kg: 72, at: 5 } } };
+    const seed = { v: 3, epoch: 0, start: '2026-11-01', phase: 1, phaseStart: '2026-11-01', updated: 10, weight: { '2026-11-23': { kg: 70, at: 5 } } };
     const o = await open(b, { seed });
     const pg = o.page, t = async q => ((await pg.textContent(q)) || '').replace(/\s+/g, ' ').trim();
     const sv = () => pg.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
@@ -156,7 +156,7 @@ async function open(b, o) {
     await pg.click('#dn-runlog'); await pg.clock.runFor(300);
     ok('10 log form opens on the load field', (await pg.isVisible('#lg-kg')) && (await pg.evaluate(() => document.activeElement && document.activeElement.id)) === 'lg-kg' && !(await pg.isVisible('[data-v="dir:add"]')));
     await pg.fill('#lg-kg', '10'); await pg.clock.runFor(50);
-    ok('10 live readout: 62 kg of 72 kg, 86%', /62 kg.*72 kg.*86% wagi/.test(await t('#lg-kgp')), await t('#lg-kgp'));
+    ok('10 live readout: 60 kg of 70 kg, 86%', /60 kg.*70 kg.*86% wagi/.test(await t('#lg-kgp')), await t('#lg-kgp'));
     await pg.fill('#lg-kg', 'abc'); await pg.click('[data-act="lg-save"]'); await pg.clock.runFor(100);
     ok('10 bad load: error, focus on the field', (await pg.isVisible('#lg-h.is-err')) && (await pg.evaluate(() => document.activeElement.id)) === 'lg-kg');
     await pg.fill('#lg-kg', '10'); await pg.click('[data-act="lg-set"][data-v="rpe:5"]');

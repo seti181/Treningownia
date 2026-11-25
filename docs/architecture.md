@@ -82,6 +82,14 @@ core, plan, blocks, store, views, blocks-views, config and sync end with `if (ty
 - Backup: Więcej → Ustawienia → Kopia zapasowa. "Zapisz kopię" downloads `treningownia-kopia-YYYY-MM-DD.json` = `{ app: 'treningownia', format: 1, exported, state }`; "Wyślij kopię" uses the share sheet where the phone supports sharing files. "Wczytaj kopię" reads a file, shows a summary and, after a confirmation, merges it with `merge()`; it never deletes anything.
 - Size: everything lives in one document (Firestore allows 1 MiB). Years of daily entries stay far below that; keep bulky data (GPS tracks, photos) out of the state.
 
+## Security
+
+- **CSP**: build.js puts a Content-Security-Policy `<meta>` in the page (GitHub Pages can't send headers). Scripts run only if their sha256 is in the list, which the build computes from the ten inline scripts, plus the font link's `onload` (`'unsafe-hashes'`). Data can go only to the page's own origin and the three Firebase endpoints (`connect-src`); styles from the page and Google Fonts. No inline `on…=` handlers, `eval` or new external hosts without adding them to `CSP` in build.js; a violation shows as a console error, which fails the Playwright tests. tests/test-pwa.js checks that an injected script and a request to another host are blocked.
+- **Untrusted text**: everything from localStorage, the cloud or a backup file goes through `STORE.sanitize()` (known keys, checked values, length limits); every value in HTML goes through `esc()` (escapes `& < > " '`). Keep both rules for new fields.
+- **Shared origin**: every GitHub Pages site of the account runs on `<user>.github.io` and can read this app's localStorage (state and the sync refresh token). Don't host third-party code on that account's Pages.
+- **CI**: only the deploy job may publish (`pages: write`, `id-token: write`); the test job, which installs npm packages, can only read. Actions are pinned to commit SHAs (the tag is in a comment); to update one, resolve the new tag with `git ls-remote https://github.com/<action>.git refs/tags/<tag>`.
+- **Firebase**: the key is public; sign-ups off, rules pinned to the owner's UID and a key restricted to the app's address (docs/sync.md).
+
 ## Offline (`sw.js`)
 
 - Registered from trainer.js on https and on localhost only (never from a `file:` page).

@@ -169,7 +169,8 @@ function sanitize(o, fallbackDay) {
   d.rehabDoneAt = +o.rehabDoneAt || 0;
   if (isObj(o.props)) Object.keys(o.props).slice(0, 500).forEach(id => {
     const p = o.props[id];
-    if (typeof id !== 'string' || id.length > 80 || !isObj(p)) return;
+    // '__proto__' podmieniłby prototyp obiektu props zamiast dodać wpis
+    if (typeof id !== 'string' || id.length > 80 || id === '__proto__' || !isObj(p)) return;
     if (p.del) { d.props[id] = { del: true, at: at(p) }; return; }
     if ((p.s === 'ok' || p.s === 'no') && typeof p.d === 'string' && DATE.test(p.d)) d.props[id] = { s: p.s, d: p.d, at: at(p), text: str(p.text, 200) };
   });
