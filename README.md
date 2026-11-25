@@ -1,6 +1,6 @@
 # Treningownia
 
-My training app, in Polish and made for the phone. It installs from the browser and works without a network. It plans the week from training blocks (running, climbing, fingers, strength, stretching) that you can move, skip, edit and log, with points, badges and a weekly goal. It also runs a shoulder rehab plan (timed sessions, 33 animated exercises) and a body-weight log with a trend chart. Next steps are in `docs/roadmap.md`.
+My training app, in Polish and made for the phone. It installs from the browser and works without a network. It plans the week from training blocks (running, climbing, fingers, strength, stretching) that you can move, skip, edit and log, with points, badges and a weekly goal. It tracks climbing projects, proposes the next step in running and finger training (you accept or decline), runs a shoulder rehab plan (timed sessions, 33 animated exercises) and keeps a body-weight log with a trend chart. Next steps are in `docs/roadmap.md`.
 
 It's one HTML file plus a manifest, a service worker and icons, with no dependencies. The code lives in `src/`, and the build puts it together.
 
@@ -8,7 +8,7 @@ It's one HTML file plus a manifest, a service worker and icons, with no dependen
 
 - **The app:** `https://<your-github-name>.github.io/<repository>/`, once it's on GitHub (see below).
 - **Install on Android (Chrome):** open the address, then menu (three dots) → **Install app** (or **Add to Home screen**). It then opens from its icon, full screen, and works offline.
-- **Your data** is saved on the phone. To also keep it in the cloud and see it on other devices, sign in under Więcej → Ustawienia (after the Firebase setup below). The same page saves and loads a backup file.
+- **Your data** is saved on the phone only (cloud sync is switched off). Save a backup file now and then: Więcej → Ustawienia → Kopia zapasowa → "Zapisz kopię", and keep it somewhere safe (for example Google Drive). "Wczytaj kopię" brings it back on any phone.
 
 ## Develop
 
@@ -41,9 +41,9 @@ In VS Code: Ctrl+Shift+B builds; Terminal → Run Task → test runs the tests.
 
 Every push to `main` then runs the tests and, if they pass, publishes a new version. Actions shows each run; Settings → Pages shows the address.
 
-## Set up sync (Firebase, free)
+## Sync (Firebase, not in use)
 
-Step by step in `docs/sync.md`: create a Firebase project, switch on e-mail sign-in and add your user, create a Firestore database with the rules from that file, then put the project's `apiKey` and `projectId` into `src/config.js` and push. The API key isn't a secret; the rules are what protect the data.
+Sync is built but switched off: `src/config.js` is empty, so the app never contacts Firebase. To turn it on later, follow `docs/sync.md` step by step: create a Firebase project, switch on e-mail sign-in and add your user, create a Firestore database with the rules from that file, then put the project's `apiKey` and `projectId` into `src/config.js` and push. The API key isn't a secret; the rules are what protect the data.
 
 ## Folder
 

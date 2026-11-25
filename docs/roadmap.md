@@ -14,9 +14,11 @@ One app that:
 
 Targets: a **1:20 half marathon** (3:47 min/km) by late 2028 and **7c** in climbing by May 2027. Running and climbing are separate tracks in one week: about 3 runs and 3 climbs a week, Sunday always a climb, 6–7 training days with easier periods. The shoulder rehab is still on and keeps its rules (CLAUDE.md): no pull-ups or pulling blocks; straight-arm hangboard hangs are allowed.
 
-## Where things stand (24 November 2026)
+## Where things stand (25 November 2026)
 
 Live at https://seti181.github.io/Treningownia/ (public repository github.com/seti181/Treningownia). Every push to `main` runs the tests and publishes only if they pass.
+
+**Now:** the owner uses the app for a few weeks from 25 November 2026, then we tune it together (Next 1). The 5 km test falls in that time (mid-December), so the first strides proposal will show up on its own.
 
 | Area | State | Docs |
 |---|---|---|
