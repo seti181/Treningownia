@@ -117,6 +117,14 @@ const DEFAULT_WEEK = {
   5: ['bieg-dlugi', 'rozc-bieg'], 6: ['sila-pompki', 'sila-kolka', 'rozc-pelne'], 0: ['wspinanie']
 };
 
+// Mocniejsze biegi: najwyżej jeden w tygodniu, najchętniej w środę. W tygodniu odciążenia biegi ze strefy tempa
+// (progowe, interwały, narastające) pokazują się jako spokojny bieg.
+const QUALITY = ['bieg-przebiezki', 'bieg-tempo', 'bieg-interwaly', 'bieg-narastajacy'];
+const QUALITY_DAYS = [3, 2, 4, 1, 5, 6, 0];
+const HARD_ZONE = { tempo: 1, interval: 1, steady: 1 };
+const DAY_IN = ['w niedzielę', 'w poniedziałek', 'we wtorek', 'w środę', 'w czwartek', 'w piątek', 'w sobotę'];
+const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
+
 const clone = o => JSON.parse(JSON.stringify(o));
 const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
 
@@ -179,7 +187,11 @@ const pattern = st => st.week || DEFAULT_WEEK;
 function dayItems(st, d) {
   const o = st.days && st.days[d];
   if (o && !o.del && Array.isArray(o.items)) return o.items.map(x => ({ k: x.k, b: x.b, skip: !!x.skip }));
-  return (pattern(st)[PL.dow(d)] || []).map((b, i) => ({ k: 'p' + i + '-' + b, b, skip: false }));
+  const rec = isRecovery(st, d);
+  return (pattern(st)[PL.dow(d)] || []).map((b0, i) => {
+    const bl = rec && getBlock(st, b0), b = bl && bl.kind === 'run' && HARD_ZONE[bl.zone] ? 'bieg-spokojny' : b0;
+    return { k: 'p' + i + '-' + b, b, skip: false };
+  });
 }
 function entryOf(st, d, k) { const l = st.blog && st.blog[d]; const e = l && l[k]; return e && !e.del ? e : null; }
 // Dzień do wyświetlenia: zaplanowane bloki (z wpisem, jeśli jest) i dopisane poza planem.
@@ -561,6 +573,29 @@ function proposals(st, today) {
       add({ id: 'bieg:' + b.id + ':' + dur, block: b.id, title: b.name, text: (long ? 'Długi bieg' : 'Spokojny bieg') + ' ' + Math.round(dur / 60) + ' min zamiast ' + Math.round(b.items[0].dur / 60) + ' min (+5 min, objętość rośnie najwyżej o 10% tygodniowo).', edit: { item: 0, dur, min: Math.round(dur / 60) } });
     }
   });
+  // mocniejsze biegi po teście 5 km, krok po kroku i tylko jeden mocniejszy bieg w tygodniu (owner, 25.11.2026):
+  // 1) spokojny bieg (najchętniej środowy) → bieg z przebieżkami, 2) po 3 lekkich biegach z przebieżkami → tempo progowe,
+  // 3) po 2 biegach w tempie z wysiłkiem do 7 → odcinek progowy +5 min, najwyżej 30 min
+  if (!alarm && paces(st, today)) {
+    const w = pattern(st), dayOf = id => QUALITY_DAYS.find(dw => (w[dw] || []).indexOf(id) >= 0);
+    const quality = Object.keys(w).some(dw => (w[dw] || []).some(id => QUALITY.indexOf(id) >= 0));
+    const okAt = id => { const p = st.props && st.props[id]; return p && !p.del && p.s === 'ok' ? p.at || 0 : 0; };
+    if (!quality) {
+      const dw = dayOf('bieg-spokojny');
+      if (dw != null) add({ id: 'bieg:q1', block: 'bieg-przebiezki', title: 'Przebieżki po teście', text: cap1(DAY_IN[dw]) + ' bieg z przebieżkami zamiast spokojnego: 30 min spokojnie i 6 × 20 s szybciej. Pozostałe biegi bez zmian.', week: { dw, from: 'bieg-spokojny', to: 'bieg-przebiezki' } });
+    } else {
+      const dw = dayOf('bieg-przebiezki');
+      if (dw != null && easy(lastOf(st, 'bieg-przebiezki', 3, okAt('bieg:q1')), 6, 3)) {
+        add({ id: 'bieg:q2', block: 'bieg-tempo', title: 'Bieg w tempie progowym', text: cap1(DAY_IN[dw]) + ' tempo progowe zamiast przebieżek: 10 min spokojnie, 20 min mocno, ale do utrzymania, 10 min spokojnie. Trzy biegi z przebieżkami były lekkie.', week: { dw, from: 'bieg-przebiezki', to: 'bieg-tempo' } });
+      }
+      const tb = getBlock(st, 'bieg-tempo'), ti = tb && (tb.items || []).findIndex(x => x.kind === 'time' && x.ex === 'bieg-szybko');
+      if (dayOf('bieg-tempo') != null && ti >= 0 && tb.items[ti].dur < 1800) {
+        const since = Math.max(isEdited(st, 'bieg-tempo') ? tb.at || 0 : 0, okAt('bieg:q2'));
+        const cur = tb.items[ti].dur, dur = Math.min(1800, cur + 300);
+        if (easy(lastOf(st, 'bieg-tempo', 2, since), 7, 2)) add({ id: 'tempo:bieg-tempo:' + dur, block: 'bieg-tempo', title: tb.name, text: 'Odcinek progowy ' + Math.round(dur / 60) + ' min zamiast ' + Math.round(cur / 60) + ' min. Dwa ostatnie biegi w tempie były do utrzymania (wysiłek do 7).', edit: { item: ti, dur, min: (tb.min || 40) + Math.round((dur - cur) / 60) } });
+      }
+    }
+  }
   // test 5 km: po 6 biegach, gdy nie było testu od 8 tygodni; zastępuje najbliższy spokojny bieg od poniedziałku
   const runs = entries(st).filter(x => x.e.t === 'bieg');
   const lastTest = runs.filter(x => x.e.b === 'bieg-test5').slice(-1)[0];
@@ -595,6 +630,8 @@ function applyProposal(st, p, today, now) {
     removeItem(st, p.plan.d, p.plan.k, now);
     addItem(st, p.plan.d, p.block, now);
   }
+  // zmiana Mojego tygodnia: jeden blok w jednym dniu zamieniony na inny
+  if (p.week) setPattern(st, p.week.dw, (pattern(st)[p.week.dw] || []).map(id => (id === p.week.from ? p.week.to : id)), now);
   decide(st, p, 'ok', today, now);
 }
 function decide(st, p, s, today, now) { st.props = st.props || {}; st.props[p.id] = { s, d: today, at: now || Date.now(), text: (p.title + ': ' + p.text).slice(0, 200) }; }

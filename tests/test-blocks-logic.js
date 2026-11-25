@@ -228,6 +228,44 @@ check('rehab history wipe keeps blocks and their log', !!BL.entryOf(S.merge(m, w
 const r = PL.defaults(MON); BL.logBlock(r, MON, 'p0-bieg-spokojny', g('bieg-spokojny'), { km: 5 }, at(60)); PL.actRestart(r, MON, true, at(61));
 check('restart with wipe keeps the block log', !!BL.entryOf(r, MON, 'p0-bieg-spokojny'));
 
+// mocniejsze biegi po teście 5 km: przebieżki → tempo progowe → dłuższy odcinek progowy; jeden mocniejszy bieg w tygodniu
+const q = PL.defaults(MON); // cykl od 23.11: budowanie do 13.12, odciążenie 14–20.12
+const qb = id => BL.getBlock(q, id);
+const run = (d, id, rpe, n) => BL.logBlock(q, d, 'x' + n, qb(id), { km: 6, sec: 2100, rpe }, at(100 + n));
+const qp = (d, id) => BL.proposals(q, d).find(p => p.id === id);
+const accept = (d, id, n) => BL.applyProposal(q, qp(d, id), d, at(100 + n));
+check('quality runs: nothing before the 5 km test (easy-only rule)', !BL.proposals(q, '2026-11-25').some(p => /^bieg:q|^tempo:/.test(p.id)));
+BL.logBlock(q, MON, 'p0-bieg-spokojny', qb('bieg-test5'), { km: 5, sec: 1500, rpe: 9 }, at(100));
+const q1 = qp('2026-11-24', 'bieg:q1');
+check('after the test: strides proposed for Wednesday instead of the easy run', q1 && q1.week.dw === 3 && /W środę bieg z przebieżkami/.test(q1.text), q1 && q1.text);
+accept('2026-11-24', 'bieg:q1', 1);
+check('accepted: Wednesday is strides from now on, other runs unchanged', BL.dayItems(q, '2026-11-25').some(x => x.b === 'bieg-przebiezki') && BL.dayItems(q, '2026-11-23').some(x => x.b === 'bieg-spokojny') && BL.dayItems(q, '2026-11-27').some(x => x.b === 'bieg-dlugi'));
+check('one quality run a week: no second strides proposal', !qp('2026-11-26', 'bieg:q1'));
+run('2026-11-25', 'bieg-przebiezki', 5, 2); run('2026-12-02', 'bieg-przebiezki', 8, 3);
+check('tempo not yet: only 2 strides runs, one of them hard', !qp('2026-12-03', 'bieg:q2'));
+run('2026-12-09', 'bieg-przebiezki', 6, 4); run('2026-12-10', 'bieg-przebiezki', 5, 5);
+check('still not: one of the last 3 strides runs was effort 8', !qp('2026-12-11', 'bieg:q2'));
+run('2026-12-11', 'bieg-przebiezki', 4, 6);
+const q2 = qp('2026-12-11', 'bieg:q2');
+check('3 light strides runs in a row: tempo proposed for Wednesday', q2 && q2.week.to === 'bieg-tempo' && /W środę tempo progowe/.test(q2.text), q2 && q2.text);
+accept('2026-12-11', 'bieg:q2', 7);
+check('accepted: Wednesday is the tempo run, strides gone', BL.pattern(q)[3].indexOf('bieg-tempo') >= 0 && BL.pattern(q)[3].indexOf('bieg-przebiezki') < 0);
+check('recovery week: the tempo run shows as an easy run', BL.dayItems(q, '2026-12-16').some(x => x.b === 'bieg-spokojny') && !BL.dayItems(q, '2026-12-16').some(x => x.b === 'bieg-tempo'));
+check('back to building: the tempo run is back', BL.dayItems(q, '2026-12-23').some(x => x.b === 'bieg-tempo'));
+run('2026-12-23', 'bieg-tempo', 7, 8); run('2026-12-26', 'bieg-tempo', 6, 9);
+const t1 = qp('2026-12-27', 'tempo:bieg-tempo:1500');
+check('2 tempo runs up to effort 7: threshold part 25 min instead of 20', t1 && /25 min zamiast 20 min/.test(t1.text), t1 && t1.text);
+BL.logBlock(q, '2026-12-27', 'x10', qb('bieg-spokojny'), { km: 5, pain: 5 }, at(110));
+check('shoulder pain 4+ in the last week pauses run proposals too', !qp('2026-12-27', 'tempo:bieg-tempo:1500'));
+BL.delLog(q, '2026-12-27', 'x10', at(111));
+accept('2026-12-27', 'tempo:bieg-tempo:1500', 12);
+check('accepted: tempo block 25 min threshold, 45 min in all', qb('bieg-tempo').items[1].dur === 1500 && qb('bieg-tempo').min === 45);
+check('the next step needs 2 new tempo runs', !BL.proposals(q, '2026-12-28').some(p => /^tempo:/.test(p.id)));
+run('2026-12-30', 'bieg-tempo', 7, 13); run('2027-01-02', 'bieg-tempo', 7, 14);
+accept('2027-01-02', 'tempo:bieg-tempo:1800', 15);
+run('2027-01-06', 'bieg-tempo', 5, 16); run('2027-01-09', 'bieg-tempo', 5, 17);
+check('threshold part stops at 30 min', qb('bieg-tempo').items[1].dur === 1800 && !BL.proposals(q, '2027-01-09').some(p => /^tempo:/.test(p.id)));
+
 // projekty wspinaczkowe: próby z listy dróg, przejście, punkty, odznaka, walidacja i scalanie
 const pj = PL.defaults(MON);
 const rysa = BL.saveProject(pj, { name: 'Rysa', grade: '7a', start: '2026-11-20', place: 'Skała' }, at(70));

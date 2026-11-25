@@ -82,7 +82,7 @@ dist/         build output, not in git
 - Colours come from the tokens in page.css. Traffic-light colours (`--ok`, `--warn`, `--bad`) mean good or bad, so never use them for weight going up or down.
 - Not medical advice. Don't change rehab doses, gates or pain rules unless the owner asks; the rehab plan document is the source of truth. New training plans start conservative and the owner confirms them.
 - While rehab is on: no added weight on the hangboard (the log form hides "Dociążenie"), no pull-ups, ring rows or hanging pulls in any block (tests/test-blocks-logic.js checks the built-ins); climbing cards carry the shoulder reminder. Hanging on the hangboard with straight arms is allowed (owner, 24 November 2026). Pulling blocks are marked `afterRehab` and stay hidden until the owner uses "Koniec rehabilitacji" (`rehabDone`).
-- Progression is never silent: the app proposes, the owner accepts (docs/blocks.md → proposals). Running stays easy-only until the 5 km test and the owner's OK.
+- Progression is never silent: the app proposes, the owner accepts (docs/blocks.md → proposals). Running stays easy-only until the 5 km test; after it, quality runs come only as proposals the owner accepts (strides, then tempo; one quality run a week; intervals wait for the race plan).
 - Before you finish: `npm test` passes, and after UI changes you have looked at the screenshots in shots/ (390px and 320px, light and dark).
 - Update the matching docs/ file, and this file if a command or rule changed, in the same change.
 

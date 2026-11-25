@@ -148,6 +148,28 @@ const errors = [];
     check('6 undo: rehab on again', (await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY)).rehabDone === null);
     await c4.close();
   }
+  // 7) po teście 5 km: propozycja przebieżek w środę, przyjęcie zmienia Mój tydzień
+  {
+    const c5 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+    const p = await c5.newPage();
+    p.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    await p.clock.install({ time: new Date(2026, 11, 1, 8, 0) }); // wtorek
+    await p.addInitScript(k => {
+      window.__NO_LEVELUP = true;
+      localStorage.setItem(k, JSON.stringify({ start: '2026-11-23', updated: 5, cycle: { start: '2026-11-23', build: 3, recover: 1 },
+        blog: { '2026-11-30': { 'p0-bieg-spokojny': { b: 'bieg-test5', t: 'bieg', kind: 'run', name: 'Test 5 km', done: true, at: 1, km: 5, sec: 1500, rpe: 9 } } } }));
+    }, KEY);
+    await p.goto(APP); await p.clock.runFor(300);
+    const t5 = async q => ((await p.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    check('7 after the 5 km test: strides proposed for Wednesday', /Przebieżki po teście/.test(await t5('#dzis-in .props')) && /W środę bieg z przebieżkami/.test(await t5('#dzis-in .props')), await t5('#dzis-in .props'));
+    await p.screenshot({ path: OUT + 'r-10-strides-proposal.png' });
+    await p.click('[data-act="pr-ok"][data-v="bieg:q1"]'); await p.clock.runFor(200);
+    const s5 = await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+    check('7 accepted: Mój tydzień has strides on Wednesday', s5.week && s5.week[3].indexOf('bieg-przebiezki') >= 0 && s5.week[3].indexOf('bieg-spokojny') < 0, JSON.stringify(s5.week));
+    await go(p, 'tydzien');
+    check('7 Tydzień: Wednesday shows the strides run with its pace', /Bieg z przebieżkami/.test(await t5('#wk-2026-12-02')), await t5('#wk-2026-12-02'));
+    await c5.close();
+  }
   await b.close();
   finish(errors);
 })();

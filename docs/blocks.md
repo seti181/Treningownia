@@ -31,12 +31,17 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 ## Training cycle and progression proposals
 
 - `cycle = { start (Monday), build, recover }`, default 3 weeks build + 1 week recovery from the first Monday (`phaseOf`). Shown on Dziś and Tydzień ("Budowanie · tydzień 2 z 3"), changed on the Bloki page ("Cykl treningowy"; "bez cyklu" turns it off).
-- A recovery week: the km challenge target drops to 60% of the 4-week average, the long-run challenge is swapped out, and no increases are proposed.
+- A recovery week: the km challenge target drops to 60% of the 4-week average, the long-run challenge is swapped out, no increases are proposed, and a run from the tempo zones in Mój tydzień (tempo, intervals, progression: `HARD_ZONE`) shows as "Bieg spokojny" that week (`dayItems`; a day changed by hand stays as it is).
 - **Proposals** (`proposals`, card "Propozycje" on Dziś, "Przyjmij" / "Nie teraz"). Nothing changes on its own; a declined proposal comes back after 7 days (`props[id] = { s, d, at, text }`); accepted ones change the block (like the editor) or the day plan and show in Dziennik as "Zmiana planu".
   - Hangboard: last 2 sessions of the block (since its last change) rated effort ≤ 6 and pain ≤ 2 → first 2 kg less weight off per step (while hanging with weight off), then +2 s per hang up to 15 s, then 20 mm → 15 mm at 10 s (the load is cleared, to be measured again).
   - Strength blocks: last 2 sessions effort ≤ 6, pain ≤ 2 → +1 rep in every reps item, +5 s on holds (max 60 s).
   - Easy runs: last 2 runs effort ≤ 4 → +5 min (max 60). Long run: last run effort ≤ 5 → +5 min (max 120).
   - 5 km test: after 6 logged runs, no test in 8 weeks → replace the next easy run from next Monday with the test.
+  - **Quality runs after the test** (owner, 25 November 2026), only while a believable test is in `paces()` (last 120 days), one quality run a week (`QUALITY`), each step a change to Mój tydzień (`week: { dw, from, to }`):
+    1. no quality run in the pattern → an easy run becomes **Bieg z przebieżkami** (Wednesday first, `QUALITY_DAYS`; id `bieg:q1`);
+    2. the last 3 strides runs since that was accepted rated effort ≤ 6 → strides become **Bieg w tempie progowym** (`bieg:q2`);
+    3. the last 2 tempo runs rated effort ≤ 7 → the threshold part +5 min (20 → 25 → 30, then it stops; `tempo:bieg-tempo:<s>`).
+    Intervals are not proposed; they wait for the race plan. Shoulder pain ≥ 4 or a red morning in the last 7 days pauses these too.
   - Paused when any block in the last 7 days had shoulder pain ≥ 4 or a morning check was red (`shoulderAlarm`).
 
 ## Charts (Postęp: "Bieganie w liczbach", "Wspinanie w liczbach")
