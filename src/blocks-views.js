@@ -216,8 +216,9 @@ function hangInfo(st, b, today) {
   const kg = BL.hangKg(st, b);
   if (kg == null) return `<p class="blk-pace">Obciążenie: zapisz po treningu, policzę % wagi</p>`;
   const p = BL.hangPct(st, today, { kg });
-  return `<p class="blk-pace">Obciążenie: ${esc(BL.kgText(kg))}${p ? ' · ' + p + '% wagi' : ''}</p>`;
+  return `<p class="blk-pace">Obciążenie: ${esc(BL.kgText(kg))}${p ? ' · ' + p + '% wagi' : ''}</p>` + (kg > 0 ? `<p class="blk-note">${esc(BACKPACK)}</p>` : '');
 }
+const BACKPACK = 'Plecak z obciążeniem: zważ go na wadze łazienkowej przed treningiem.';
 // Linia z obciążeniem dla formularza (na żywo, bez przebudowy).
 function kgLine(st, d, kg) {
   if (kg == null) return 'Puste pole: bez obciążenia w dzienniku.';
@@ -418,7 +419,7 @@ function logFormHTML(st, today, ui) {
       if (st.rehabDone || f.dir === 'add') h += `<div class="choices" role="group" aria-label="Rodzaj obciążenia"><button type="button" class="chip-btn sm" data-act="lg-set" data-v="dir:off" aria-pressed="${f.dir !== 'add' ? 'true' : 'false'}">Odciążenie</button><button type="button" class="chip-btn sm" data-act="lg-set" data-v="dir:add" aria-pressed="${f.dir === 'add' ? 'true' : 'false'}">Dociążenie</button></div>`;
       h += `<div class="row"><label class="fld sm"><span>${f.dir === 'add' ? 'Dociążenie (kg)' : 'Odciążenie (kg)'}</span><input type="text" id="lg-kg" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="0" value="${esc(f.kg == null ? '' : String(f.kg))}"${lg.err === 'kg' ? ' aria-invalid="true"' : ''}></label>` +
         `<p class="lg-pace" id="lg-kgp" aria-live="polite">${kgLine(st, lg.d, kg)}</p></div>`;
-      h += `<p class="lg-note">${f.dir === 'add' ? 'Pas z obciążeniem: wpisz, ile waży.' : 'Stopy na wadze łazienkowej podczas zwisu: ile pokazuje waga, tyle odciążasz. 0 = pełna waga.'}${st.rehabDone ? '' : ' Bez dociążania, dopóki trwa rehabilitacja.'}</p></fieldset>`;
+      h += `<p class="lg-note">${f.dir === 'add' ? 'Plecak z obciążeniem: zważ go na wadze łazienkowej i wpisz, ile waży.' :'Stopy na wadze łazienkowej podczas zwisu: ile pokazuje waga, tyle odciążasz. 0 = pełna waga.'}${st.rehabDone ? '' : ' Bez dociążania, dopóki trwa rehabilitacja.'}</p></fieldset>`;
     }
     h += `<div class="row"><label class="fld sm"><span>Czas (min)</span><input type="text" id="lg-min" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="${b ? BL.blockMinutes(b) : ''}" value="${esc(f.min || '')}"${lg.err === 'min' ? ' aria-invalid="true"' : ''}></label></div>`;
   }

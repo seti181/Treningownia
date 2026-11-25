@@ -143,9 +143,17 @@ const errors = [];
     check('6 pull-ups unlocked in the library', /Podciąganie/.test(await t4('#bloki-in')));
     await go(p, 'dzis');
     check('6 Dziś: no shoulder note on climbing, no rehab light day', !(await p.isVisible('#dzis-in .blk-warn')) && !/Rehabilitacja barku/.test(await t4('#dzis-in')));
+    // dociążenie po rehabilitacji: plecak
+    await p.click('#dzis-in .blk >> nth=0 >> [data-act="b-log"]'); await p.clock.runFor(200);
+    await p.click('[data-act="lg-set"][data-v="dir:add"]'); await p.clock.runFor(100);
+    check('6 after rehab: added weight in the log form, with the backpack note', /Plecak z obciążeniem/.test(await t4('#wpis-in .hang')));
+    await p.fill('#lg-kg', '2'); await p.click('[data-act="lg-save"]'); await p.clock.runFor(200);
+    check('6 fingers card after logging: +2 kg added (the backpack reminder is only on a session still to do)', /dociążenie 2 kg/.test(await t4('#dzis-in .blk >> nth=0')), await t4('#dzis-in .blk >> nth=0'));
     await go(p, 'plan');
     await p.click('[data-act="rehab-undo"]'); await p.clock.runFor(200);
     check('6 undo: rehab on again', (await p.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY)).rehabDone === null);
+    await go(p, 'dzis');
+    check('6 rehab on again: no added weight offered, no backpack note', !/Plecak/.test(await t4('#dzis-in')));
     await c4.close();
   }
   // 7) po teście 5 km: propozycja przebieżek w środę, przyjęcie zmienia Mój tydzień

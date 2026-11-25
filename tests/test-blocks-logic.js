@@ -294,4 +294,30 @@ const pa = S.sanitize({}, MON), pb = S.sanitize({}, MON);
 const pid = BL.saveProject(pa, { name: 'Stary', grade: '6b', start: MON }, at(80)); pa.updated = at(80);
 pb.projects[pid] = { id: pid, name: 'Nowy', grade: '6b+', start: MON, at: at(81) }; pb.updated = at(79);
 check('project: merge keeps the later edit, whichever device is newer overall', S.merge(pa, pb).projects[pid].name === 'Nowy' && S.merge(pb, pa).projects[pid].name === 'Nowy');
+
+// chwytotablica po rehabilitacji: dociążenie +2 kg (plecak) i znów 10 s, potem czas do 15 s; najwyżej +10 kg
+const hAdd = PL.defaults(MON), hgw = () => BL.getBlock(hAdd, 'palce-20');
+PL.setWeight(hAdd, '2026-11-20', 70, at(0));
+const set15 = (hold, kg, n) => { const x = JSON.parse(JSON.stringify(hgw())); Object.assign(x.items[1], { ex: 'zwis-15', hold, kg }); BL.saveBlock(hAdd, x, at(n)); };
+const hangs = (kg, rpe, n) => { BL.logBlock(hAdd, '2026-12-01', 'h' + n, hgw(), { rpe, pain: 0, kg, mm: 15 }, at(n)); BL.logBlock(hAdd, '2026-12-03', 'h' + n + 'b', hgw(), { rpe, pain: 0, kg, mm: 15 }, at(n + 1)); };
+const addP = d => BL.proposals(hAdd, d || '2026-12-03').find(p => /^palce:palce-20:add:/.test(p.id));
+set15(15, 0, 200); hangs(0, 5, 201);
+check('rehab on: 15 mm at 15 s on full weight, no added weight proposed (rehab rule)', !addP() && !BL.proposals(hAdd, '2026-12-03').some(p => /^palce/.test(p.id)));
+hAdd.rehabDone = '2026-12-02';
+const a1 = addP();
+check('after rehab: +2 kg added (backpack) and back to 10 s', a1 && a1.edit.kg === 2 && a1.edit.hold === 10 && /Dociążenie 2 kg \(plecak\) i zwisy 10 s zamiast 15 s na pełnej wadze/.test(a1.text), a1 && a1.text);
+BL.applyProposal(hAdd, a1, '2026-12-03', at(210));
+check('accepted: the block holds +2 kg at 10 s, the next default load is +2 kg', hgw().items[1].kg === 2 && hgw().items[1].hold === 10 && BL.hangKg(hAdd, hgw()) === 2);
+hangs(2, 6, 211);
+const a2 = BL.proposals(hAdd, '2026-12-03').find(p => /^palce/.test(p.id));
+check('with added weight: hangs grow +2 s first', a2 && a2.edit.hold === 12 && a2.edit.kg == null, a2 && a2.text);
+set15(15, 4, 220); hangs(4, 8, 221);
+check('a hard session (effort 8): no step', !addP());
+hangs(4, 5, 223); hangs(4, 5, 225); // te same dwa dni: dwie lekkie pary, żeby ostatnie dwa wpisy były lekkie
+const a3 = addP();
+check('at 15 s with +4 kg: +6 kg and 10 s', a3 && a3.edit.kg === 6 && /zamiast 15 s z 4 kg/.test(a3.text), a3 && a3.text);
+set15(15, 10, 230); hangs(10, 5, 231);
+check('added weight stops at +10 kg (owner to decide more)', !addP() && BL.HANG_ADD_MAX === 10);
+hAdd.rehabDone = null;
+check('rehab switched back on: a saved added weight becomes full weight', BL.hangKg(hAdd, hgw()) === 0);
 finish([]);

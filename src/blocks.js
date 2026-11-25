@@ -267,18 +267,20 @@ function entryPoints(e) {
 // kg we wpisie: ujemne = odciążenie (stopy na wadze łazienkowej), dodatnie = dociążenie (dopiero po rehabilitacji), 0 = pełna waga.
 // mm: listwa (20 albo 15). Procent wagi liczy się z wagi z najbliższego dnia, nigdy nie jest zapisywany.
 const HANG_MM = { 'zwis-20': 20, 'zwis-15': 15 };
+const HANG_ADD_MAX = 10; // dociążenie w propozycjach najwyżej do 10 kg, dalej tylko po rozmowie z właścicielem
 function hangOf(b) {
   const items = (b && b.items) || [];
   const i = items.findIndex(x => x.kind === 'hold' && HANG_MM[x.ex]);
   return i < 0 ? null : { i, x: items[i], mm: HANG_MM[items[i].ex] };
 }
 // Obciążenie na następny trening: nowsze z dwóch (cel w bloku po przyjętej propozycji, ostatni wpis bloku na tej listwie).
+// Dociążenie tylko po rehabilitacji: gdy rehabilitacja znów trwa, dodatnie obciążenie staje się pełną wagą.
 function hangKg(st, b) {
   const h = hangOf(b);
   if (!h) return null;
   const last = entries(st).filter(x => x.e.b === b.id && typeof x.e.kg === 'number' && x.e.mm === h.mm).slice(-1)[0];
-  if (last && (last.e.at || 0) >= (b.at || 0)) return last.e.kg;
-  return typeof h.x.kg === 'number' ? h.x.kg : last ? last.e.kg : null;
+  const kg = last && (last.e.at || 0) >= (b.at || 0) ? last.e.kg : typeof h.x.kg === 'number' ? h.x.kg : last ? last.e.kg : null;
+  return kg != null && kg > 0 && !st.rehabDone ? 0 : kg;
 }
 // Waga z najbliższego dnia (najwyżej 30 dni od d); null bez danych.
 function bodyKg(st, d) {
@@ -560,6 +562,11 @@ function proposals(st, today) {
         add({ id: 'palce:' + b.id + ':kg:' + nk, block: b.id, title: b.name, text: (nk === 0 ? 'Zwisy bez odciążenia, na pełnej wadze' : 'Odciążenie ' + kgNum(nk) + ' kg zamiast ' + kgNum(kg) + ' kg') + '. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, kg: nk } });
       } else if (x.hold < 15) add({ id: 'palce:' + b.id + ':' + x.ex + ':' + x.hold, block: b.id, title: b.name, text: 'Zwisy ' + Math.min(15, x.hold + 2) + ' s zamiast ' + x.hold + ' s. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, hold: Math.min(15, x.hold + 2) } });
       else if (x.ex === 'zwis-20') add({ id: 'palce:' + b.id + ':15mm', block: b.id, title: b.name, text: 'Czas na listwę 15 mm: zaczynasz od 10 s na zwis.', edit: { item: it, ex: 'zwis-15', hold: 10, kg: null, name: b.name.replace('20 mm', '15 mm') } });
+      // po rehabilitacji: 15 mm po 15 s na pełnej wadze → dociążenie +2 kg i znów 10 s, potem czas do 15 s; najwyżej +10 kg (owner, 25.11.2026)
+      else if (st.rehabDone && typeof kg === 'number' && kg >= 0 && kg < HANG_ADD_MAX) {
+        const nk = Math.min(HANG_ADD_MAX, Math.round((kg + 2) * 10) / 10);
+        add({ id: 'palce:' + b.id + ':add:' + nk, block: b.id, title: b.name, text: 'Dociążenie ' + kgNum(nk) + ' kg (plecak) i zwisy 10 s zamiast ' + x.hold + ' s' + (kg > 0 ? ' z ' + kgNum(kg) + ' kg' : ' na pełnej wadze') + '. Dwa ostatnie treningi były lekkie i bez bólu.', edit: { item: it, kg: nk, hold: 10 } });
+      }
     } else if (b.kind === 'timed' && b.t === 'sila') {
       if (!easy(lastOf(st, b.id, 2, since), 6, 2)) return;
       const items = (b.items || []).map(x => (x.kind === 'reps' ? Object.assign({}, x, { reps: bumpReps(x.reps) }) : x.kind === 'hold' ? Object.assign({}, x, { hold: Math.min(60, x.hold + 5) }) : x));
@@ -754,7 +761,7 @@ function parseKm(s) {
 const GRADE_LIST = ['4a', '4b', '4c', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a'];
 
 const API = {
-  TRACKS, TRACK_IDS, KINDS, PLACES, STYLES, STYLE_IDS, SENT, styleName, routeSum, HANG_MM, hangOf, hangKg, bodyKg, hangPct, kgNum, kgText, fingerWeeks, CLIMB_NOTE, climbNote, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
+  TRACKS, TRACK_IDS, KINDS, PLACES, STYLES, STYLE_IDS, SENT, styleName, routeSum, HANG_MM, HANG_ADD_MAX, hangOf, hangKg, bodyKg, hangPct, kgNum, kgText, fingerWeeks, CLIMB_NOTE, climbNote, CAT, BUILTIN, DEFAULT_WEEK, RATE_PTS, WEEK_PTS, WEEK_RUNS, WEEK_CLIMBS, GRADE_LIST,
   exOf, exName, catalog, getBlock, isBuiltin, isEdited, allBlocks, saveBlock, deleteBlock, copyBlock, blockSeconds, blockMinutes, sessionOf,
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,

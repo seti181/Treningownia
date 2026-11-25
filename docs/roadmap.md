@@ -34,6 +34,7 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Route list per climbing session (grade and style: OS, Flash, RP, Próba), pyramid by style, OS/flash record | done | blocks.md |
 | Climbing projects: Więcej → Projekty, tries and sends from the route list, +20 per send, badge, Postęp card | done | blocks.md |
 | Quality runs after the 5 km test: strides, then tempo (20 → 30 min), one a week, easy in recovery weeks; all as proposals | done | blocks.md |
+| Hangboard added weight after rehab: +2 kg steps (backpack), back to 10 s, up to +10 kg; hidden while rehab is on | done | blocks.md |
 | Hangboard loads: weight off or added, % of body weight, finger chart, hang records, proposals take 2 kg less off first | done | blocks.md |
 | Cloud sync (Firebase over REST) | built and tested against a fake; skipped by the owner (2026-11-25), switched off | sync.md |
 
@@ -49,12 +50,10 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 1. **Use it for a couple of weeks**, then tune: points per block, challenge targets, proposal steps. Real phones may show things tests can't (voice, vibration, wake lock, installing).
 2. **The 5 km test (mid-December 2026):** the app proposes it after 6 logged runs. After it, strides and then tempo come as proposals (built 25 November 2026, docs/blocks.md); check the first steps with the owner once they appear.
 3. **Race plan for the half marathon** (possibly Porto, September 2027): phases counted back from race day (base, build, peak, taper), weekly long-run and volume targets, race-pace sessions.
-4. **Hangboard after rehab:** added weight unlocks with "Koniec rehabilitacji"; then decide steps for added weight with the owner.
 
 ## Open questions
 
 - Running: is Porto (September 2027) the race? The pace table was agreed as standard multiples of the 5 km pace; check it after the first test.
-- Fingers: added weight later, after 15 mm feels easy?
 - Cycle: is 3 + 1 right for the owner's weeks, and should recovery weeks also cut climbing?
 
 ## Decision log
@@ -87,3 +86,4 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-25: cloud sync skipped: losing the phone's data is acceptable to the owner. The sync code stays, switched off (empty `src/config.js`); docs/sync.md keeps the hardened setup in case that changes. The backup file in Ustawienia is the way to keep a copy.
 - 2026-11-25: climbing projects built, with the owner's go: Więcej → Projekty (name, grade, start, place, note), tries picked in the route list, the first OS/Flash/RP sends it (+20 on that day, toward the climbing level, badge "Pierwszy projekt"); everything computed from the log.
 - 2026-11-25: quality runs after the 5 km test, with the owner's go: proposals change Mój tydzień step by step (an easy run, Wednesday first, → strides; 3 light strides runs → tempo; 2 tempo runs at effort ≤ 7 → +5 min threshold up to 30). One quality run a week; in a recovery week it shows as an easy run. Intervals wait for the race plan.
+- 2026-11-25: hangboard added weight after rehab, with the owner's go: a backpack weighed on the bathroom scale (weights and dumbbells later); on 15 mm at 15 s → +2 kg and 10 s, then time to 15 s, up to +10 kg. Nothing of it shows while rehab is on.
