@@ -598,6 +598,7 @@ function journalHTML(st, today, prog, ui) {
     });
     Object.keys(st.props || {}).filter(id => st.props[id].s === 'ok' && st.props[id].d === d).forEach(id => { li += `<li class="jr-win"><span class="h-s">Zmiana planu</span><span class="h-x">${esc(st.props[id].text)}</span></li>`; });
     (prog.chDone || []).filter(c => c.d === d).forEach(c => { li += `<li class="jr-win"><span class="h-s">Wyzwanie: ${esc(c.name)}</span><span class="h-pts">+${c.pts}</span></li>`; });
+    (prog.projectSends || []).filter(s => s.d === d).forEach(s => { li += `<li class="jr-win"><span class="h-s">Projekt: ${esc(s.name)}</span><span class="h-x">${esc(s.grade + ' · ' + BLK().styleName(s.s) + ' · ' + s.tries + '. próba')}</span><span class="h-pts">+${s.pts}</span></li>`; });
     (prog.recordEvents || []).filter(r => r.d === d).forEach(r => { li += `<li class="jr-win"><span class="h-s">Rekord: ${esc(r.name)}</span><span class="h-x">${esc(r.text)}</span><span class="h-pts">+${r.pts}</span></li>`; });
     if (x.w != null) li += `<li><span class="h-s">Waga</span><span class="h-w">${kg1(x.w)} kg</span></li>`;
     return li + '</ul></li>';
@@ -609,6 +610,7 @@ function journalHTML(st, today, prog, ui) {
 // ---------- Więcej ----------
 const MENU = [
   ['bloki', 'Bloki treningowe', 'Biblioteka bloków i Twój domyślny tydzień'],
+  ['projekty', 'Projekty wspinaczkowe', 'Drogi, nad którymi pracujesz'],
   ['waga', 'Waga', 'Pomiary, średnia z 7 dni i cel'],
   ['atlas', 'Atlas ćwiczeń', 'Wszystkie ćwiczenia w ruchu'],
   ['plan', 'Rehabilitacja barku', 'Faza, start od nowa, progi i zasady bólu'],
@@ -620,6 +622,7 @@ function moreHTML(st, today, ui) {
     let sub = m[2];
     if (m[0] === 'waga') { const ws = PL.weightStats(st, today); if (ws) sub = 'Średnia z 7 dni: ' + kg1(ws.avg) + ' kg'; }
     if (m[0] === 'plan') sub = PL.PHASES[st.phase].name + ' · start od nowa, progi, zasady bólu';
+    if (m[0] === 'projekty' && BLK()) { const pl = BLK().projectList(st); if (pl.active.length || pl.sent.length) sub = pl.active.length + ' w trakcie · ' + pl.sent.length + ' ' + plural(pl.sent.length, 'przejdzony', 'przejdzone', 'przejdzonych'); }
     if (m[0] === 'ustawienia' && ui && ui.acct) sub = 'Zalogowano: ' + ui.acct.email;
     h += `<li><button type="button" class="menu-i card" data-act="tab" data-v="${m[0]}"><span class="menu-t"><b>${esc(m[1])}</b><small>${esc(sub)}</small></span>${ICON.chev}</button></li>`;
   });

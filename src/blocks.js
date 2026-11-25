@@ -229,7 +229,7 @@ function logBlock(st, d, k, b, data, now) {
   st.blog = st.blog || {};
   const e = { b: b.id, t: b.t, kind: b.kind, name: b.name, done: true, at: now || Date.now() };
   ['dur', 'km', 'sec', 'rpe', 'pain', 'routes', 'kg', 'mm'].forEach(f => { if (typeof data[f] === 'number' && isFinite(data[f])) e[f] = data[f]; });
-  if (Array.isArray(data.rl) && data.rl.length) e.rl = data.rl.map(r => ({ g: r.g, s: r.s }));
+  if (Array.isArray(data.rl) && data.rl.length) e.rl = data.rl.map(r => (r.p ? { g: r.g, s: r.s, p: r.p } : { g: r.g, s: r.s }));
   ['grade', 'place', 'note'].forEach(f => { if (typeof data[f] === 'string' && data[f]) e[f] = data[f]; });
   if (data.partial) e.partial = true;
   (st.blog[d] = st.blog[d] || {})[k] = e;
@@ -428,6 +428,54 @@ function records(all, st) {
     }
   });
   return { best, events };
+}
+
+// ---------- projekty wspinaczkowe ----------
+// projects: { id: { name, grade, place?, start, note?, at } | { del, at } }. Próba na projekcie to droga z listy dróg z polem p
+// (id projektu). Projekt jest przejdzony od pierwszej takiej drogi w stylu OS, Flash albo RP. Próby, sesje i przejście
+// liczą się z dziennika za każdym razem, nic z tego nie jest zapisywane osobno.
+const PROJECT_PTS = 20;
+function getProject(st, id) { const p = st.projects && st.projects[id]; return p && !p.del ? p : null; }
+function saveProject(st, p, now) {
+  st.projects = st.projects || {};
+  const id = p.id || 'p' + Math.round(now || Date.now()).toString(36);
+  const x = { id, name: p.name, grade: p.grade, start: p.start, at: now || Date.now() };
+  if (p.place) x.place = p.place;
+  if (p.note) x.note = p.note;
+  st.projects[id] = x;
+  return id;
+}
+function deleteProject(st, id, now) { st.projects = st.projects || {}; st.projects[id] = { del: true, at: now || Date.now() }; }
+// Wszystkie projekty z próbami: { id, name, grade, place, start, note, tries, sessions, last, sent: { d, k, s, tries } | null }.
+// Próby po przejściu już się nie liczą. Kolejność: w trakcie (najnowsza próba albo start na górze), potem przejdzone (najnowsze na górze).
+function projectList(st) {
+  const by = {};
+  Object.keys(st.projects || {}).forEach(id => {
+    const p = getProject(st, id);
+    if (p) by[id] = { id, name: p.name, grade: p.grade, place: p.place || null, start: p.start, note: p.note || '', tries: 0, sessions: 0, last: null, sent: null };
+  });
+  entries(st).forEach(x => {
+    if (x.e.t !== 'wspin' || !x.e.rl) return;
+    const inSession = {};
+    x.e.rl.forEach(r => {
+      const p = by[r.p];
+      if (!p || p.sent) return;
+      p.tries++;
+      if (!inSession[r.p]) { inSession[r.p] = 1; p.sessions++; }
+      p.last = x.d;
+      if (SENT(r.s)) p.sent = { d: x.d, k: x.k, s: r.s, tries: p.tries };
+    });
+  });
+  const list = Object.keys(by).map(id => by[id]);
+  const recent = p => p.last || p.start || '';
+  const active = list.filter(p => !p.sent).sort((a, b) => (recent(a) < recent(b) ? 1 : recent(a) > recent(b) ? -1 : 0));
+  const sent = list.filter(p => p.sent).sort((a, b) => (a.sent.d < b.sent.d ? 1 : a.sent.d > b.sent.d ? -1 : 0));
+  return { active, sent };
+}
+// Przejścia projektów od najstarszego (do punktów i odznaki).
+function projectSends(st) {
+  return projectList(st).sent.map(p => ({ id: p.id, name: p.name, grade: p.grade, d: p.sent.d, k: p.sent.k, s: p.sent.s, tries: p.sent.tries, pts: PROJECT_PTS }))
+    .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
 }
 
 // ---------- prawdziwa forma ----------
@@ -674,7 +722,8 @@ const API = {
   pattern, dayItems, dayView, entryOf, addItem, removeItem, skipItem, moveItem, setPattern,
   logBlock, delLog, entries, entryPoints, weekStart, weekStats, fmtDur, fmtKm, pace, parseTime, parseKm,
   challenges, records, recText, REC_DEFS, REC_PTS, CH_POOL, weekIndex, climbForm, runForm, HM, ZONES, paces, paceText, fmtPace,
-  phaseOf, isRecovery, shoulderAlarm, proposals, applyProposal, decide, runWeeks, climbStats
+  phaseOf, isRecovery, shoulderAlarm, proposals, applyProposal, decide, runWeeks, climbStats,
+  PROJECT_PTS, getProject, saveProject, deleteProject, projectList, projectSends
 };
 G.BLOCKS = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

@@ -57,7 +57,8 @@ function cleanEntry(e) {
   if (BL.GRADE_LIST.indexOf(e.grade) >= 0) o.grade = e.grade;
   if (BL.PLACES.indexOf(e.place) >= 0) o.place = e.place;
   if (Array.isArray(e.rl)) {
-    const rl = e.rl.filter(r => isObj(r) && BL.GRADE_LIST.indexOf(r.g) >= 0 && BL.STYLE_IDS.indexOf(r.s) >= 0).slice(0, 60).map(r => ({ g: r.g, s: r.s }));
+    const rl = e.rl.filter(r => isObj(r) && BL.GRADE_LIST.indexOf(r.g) >= 0 && BL.STYLE_IDS.indexOf(r.s) >= 0).slice(0, 60)
+      .map(r => (typeof r.p === 'string' && BID.test(r.p) ? { g: r.g, s: r.s, p: r.p } : { g: r.g, s: r.s }));
     if (rl.length) o.rl = rl;
   }
   if (num(e.kg, -100, 60)) o.kg = Math.round(e.kg * 10) / 10;
@@ -66,7 +67,19 @@ function cleanEntry(e) {
   if (e.partial) o.partial = true;
   return o;
 }
+// projekt wspinaczkowy albo znacznik usunięcia
+function cleanProject(id, p) {
+  if (!isObj(p)) return null;
+  if (p.del) return { del: true, at: at(p) };
+  const BL = G.BLOCKS;
+  if (!BL || BL.GRADE_LIST.indexOf(p.grade) < 0 || !DATE.test(p.start || '')) return null;
+  const o = { id, name: str(p.name, 60) || 'Projekt', grade: p.grade, start: p.start, at: at(p) };
+  if (BL.PLACES.indexOf(p.place) >= 0) o.place = p.place;
+  if (str(p.note, 200)) o.note = str(p.note, 200);
+  return o;
+}
 function sanitizeBlocks(o, d) {
+  if (isObj(o.projects)) Object.keys(o.projects).slice(0, 300).forEach(id => { if (BID.test(id)) { const p = cleanProject(id, o.projects[id]); if (p) d.projects[id] = p; } });
   if (isObj(o.blocks)) Object.keys(o.blocks).slice(0, 300).forEach(id => { if (BID.test(id)) { const b = cleanBlock(id, o.blocks[id]); if (b) d.blocks[id] = b; } });
   if (isObj(o.week)) {
     d.week = {};
@@ -92,7 +105,8 @@ function sanitizeBlocks(o, d) {
 // Bloki, tydzień, dni i dziennik bloków łączą się zawsze (także po wyczyszczeniu historii rehabilitacji):
 // dla każdego bloku, dnia i wpisu wygrywa późniejszy zapis, znaczniki usunięcia też.
 function mergeBlocks(out, other) {
-  ['blocks', 'days'].forEach(key => Object.keys(other[key] || {}).forEach(id => {
+  ['blocks', 'days', 'projects'].forEach(key => Object.keys(other[key] || {}).forEach(id => {
+    out[key] = out[key] || {};
     const x = other[key][id], y = out[key][id];
     if (!y || at(x) > at(y)) out[key][id] = clone(x);
   }));

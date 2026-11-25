@@ -15,10 +15,10 @@ Personal context (body, injury history, schedule, how the owner likes to work) i
 
 ## Status (24 November 2026)
 
-- Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; the Atlas with search and 10 categories; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts; a route list per climbing session (OS, Flash, RP, Próba); hangboard loads in % of body weight. Details per area in docs/; the table is in docs/roadmap.md.
+- Built and live: app shell and PWA; rehab with an end-of-rehab switch (off); weight with pace and goal date; training blocks with planner and editor; the run player with segments and the 5 km test; training paces; training cycle and progression proposals; animations for every exercise; the Atlas with search and 10 categories; points, badges, streaks with a weekly rest day; weekly challenges; personal records; climbing and running levels with real-form lines and a level-up celebration; charts; a route list per climbing session (OS, Flash, RP, Próba); hangboard loads in % of body weight; climbing projects (Więcej → Projekty). Details per area in docs/; the table is in docs/roadmap.md.
 - Cloud sync: skipped by the owner (25 November 2026). The code stays, switched off (empty src/config.js); data lives on the phone, and the backup file (Ustawienia) is the only copy elsewhere. Don't bring it up again unless the owner does.
 - Waiting on the owner: Android app (Capacitor OK and Android Studio), Strava/GPX (a watch), ending rehab (only they decide).
-- Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), climbing projects, hangboard added weight after rehab.
+- Next ideas, to agree with the owner first (docs/roadmap.md → Next): tune after real use, the 5 km test in mid-December, a half-marathon race plan (maybe Porto, September 2027), hangboard added weight after rehab.
 - Before each new item: post a short summary of the concrete details (doses, paces, screens) and wait for "go".
 
 ## Commands
@@ -65,7 +65,7 @@ dist/         build output, not in git
 - views.js returns HTML strings; trainer.js rebuilds a panel with `innerHTML`, then restores focus and caret. Form drafts live in the `ui` object, so a re-render never loses typing, and a panel never re-renders on its own while the owner types in it.
 - State is one JSON object (shape in docs/architecture.md), always saved in localStorage (`treningownia-v1`). When the owner is signed in, it also syncs with one Firestore document through `sync.js`: read, `merge()`, write only if different, with a version condition (docs/sync.md). Points, grades and averages are computed from the log each time, never stored.
 - Training is built from blocks (docs/blocks.md): a default week ("Mój tydzień") fills each day, any day can be changed, every completed block is logged and earns points. The shoulder rehab runs alongside, unchanged.
-- Tabs: Dziś (today), Tydzień (week planner), Dziennik (journal), Postęp (progress), Więcej (more). Under Więcej: Bloki treningowe, Waga, Atlas (search and category chips), Rehabilitacja barku, Ustawienia (account, backup, sound). Pages without a tab: Blok (editor) and Wpis (log form). Five tabs fill a 320px screen, so new things go under Więcej or into an existing tab.
+- Tabs: Dziś (today), Tydzień (week planner), Dziennik (journal), Postęp (progress), Więcej (more). Under Więcej: Bloki treningowe, Projekty wspinaczkowe, Waga, Atlas (search and category chips), Rehabilitacja barku, Ustawienia (account, backup, sound). Pages without a tab: Blok (editor) and Wpis (log form). Five tabs fill a 320px screen, so new things go under Więcej or into an existing tab.
 
 ## Rules
 

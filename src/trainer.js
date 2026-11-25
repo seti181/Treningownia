@@ -5,7 +5,7 @@ const A = window.ATLAS, PL = window.PLAN, V = window.VIEWS, S = window.STORE;
 const pl = document.getElementById('player');
 // Panele budowane z widoków (Atlas to gotowa treść z budowania).
 const panels = {};
-['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej', 'waga', 'plan', 'ustawienia', 'bloki', 'blok', 'wpis'].forEach(k => { panels[k] = document.getElementById(k + '-in'); });
+['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej', 'waga', 'plan', 'ustawienia', 'bloki', 'blok', 'wpis', 'projekty'].forEach(k => { panels[k] = document.getElementById(k + '-in'); });
 const hdr = document.getElementById('hdr-prog');
 if (!A || !PL || !V || !S || !pl || !panels.dzis) return;
 
@@ -133,7 +133,7 @@ async function doLogin(email, password) {
 // ================= zakładki i widoki =================
 // Pasek zakładek; podstrony z Więcej podświetlają zakładkę Więcej.
 const TABS = ['dzis', 'tydzien', 'dziennik', 'postep', 'wiecej'];
-const SUB = { waga: 'wiecej', atlas: 'wiecej', plan: 'wiecej', ustawienia: 'wiecej', bloki: 'wiecej', blok: 'wiecej', wpis: '' };
+const SUB = { waga: 'wiecej', atlas: 'wiecej', plan: 'wiecej', ustawienia: 'wiecej', bloki: 'wiecej', blok: 'wiecej', projekty: 'wiecej', wpis: '' };
 const PAGES = TABS.concat(Object.keys(SUB));
 // Zakładka podświetlona dla strony: wpis należy do strony, z której go otwarto.
 function topOf(name) {
@@ -142,7 +142,7 @@ function topOf(name) {
   return SUB[name] || 'dzis';
 }
 let tab = 'dzis', shownDay = today();
-const stale = { dzis: true, tydzien: true, dziennik: true, postep: true, wiecej: true, waga: true, plan: true, ustawienia: true, bloki: true, blok: true, wpis: true };
+const stale = { dzis: true, tydzien: true, dziennik: true, postep: true, wiecej: true, waga: true, plan: true, ustawienia: true, bloki: true, blok: true, wpis: true, projekty: true };
 // Szkice formularzy trzymane poza DOM: panel może się przerysować w trakcie pisania (zapis, dane z innego urządzenia).
 const ui = {
   rsWhen: 'today', rsDate: '', rsWipe: false, confirm: false, stPhase: 0, stDay: 0, stRung: 0, sound: 'voice', hasVoice: false,
@@ -169,6 +169,7 @@ function renderPanel(name) {
   else if (name === 'tydzien') box.innerHTML = V.weekHTML(state, t, ui, prog);
   else if (name === 'bloki') box.innerHTML = V.libraryHTML(state, ui);
   else if (name === 'blok') box.innerHTML = V.editorHTML(state, ui);
+  else if (name === 'projekty') box.innerHTML = V.projectsHTML(state, t, ui);
   else if (name === 'wpis') box.innerHTML = V.logFormHTML(state, t, ui);
   else if (name === 'dziennik') box.innerHTML = V.journalHTML(state, t, prog, ui);
   else if (name === 'postep') box.innerHTML = V.progressHTML(state, t, prog);
@@ -268,9 +269,11 @@ function newWins(before, after) {
   const ch = {}, rec = {};
   (before.chDone || []).forEach(c => { ch[c.week + c.id] = 1; });
   (before.recordEvents || []).forEach(r => { rec[r.id + r.d + r.k] = 1; });
-  return { ch: (after.chDone || []).filter(c => !ch[c.week + c.id]), rec: (after.recordEvents || []).filter(r => !rec[r.id + r.d + r.k]) };
+  const prj = {};
+  (before.projectSends || []).forEach(p => { prj[p.id] = 1; });
+  return { ch: (after.chDone || []).filter(c => !ch[c.week + c.id]), rec: (after.recordEvents || []).filter(r => !rec[r.id + r.d + r.k]), prj: (after.projectSends || []).filter(p => !prj[p.id]) };
 }
-function winsText(w) { return w.ch.map(c => ' · wyzwanie: ' + c.name).concat(w.rec.map(r => ' · rekord: ' + r.name.toLowerCase() + ' ' + r.text)).join(''); }
+function winsText(w) { return (w.prj || []).map(p => ' · projekt przejdzony: ' + p.name + ' ' + p.grade).concat(w.ch.map(c => ' · wyzwanie: ' + c.name), w.rec.map(r => ' · rekord: ' + r.name.toLowerCase() + ' ' + r.text)).join(''); }
 function withGain(fn, label) {
   const before = PL.progress(state, today());
   fn();
@@ -485,7 +488,8 @@ function blockAction(act, b, t) {
     }
     case 'lg-radd': {
       const f = ui.lg.f;
-      f.rl = (f.rl || []).concat(f.rl && f.rl.length >= 60 ? [] : [{ g: f.rg, s: f.rs }]);
+      const pj = f.rp ? BL.getProject(state, f.rp) : null;
+      f.rl = (f.rl || []).concat(f.rl && f.rl.length >= 60 ? [] : [pj ? { g: pj.grade, s: f.rs, p: f.rp } : { g: f.rg, s: f.rs }]);
       renderPanel('wpis'); focusIn('[data-act="lg-radd"]');
       return true;
     }
@@ -532,6 +536,14 @@ function blockAction(act, b, t) {
       toast(own ? 'Blok usunięty' : 'Przywrócona wersja startowa');
       return true;
     }
+    // projekty wspinaczkowe
+    case 'pj-new': Object.assign(ui, { pj: { id: '', name: '', grade: (prog.climb && prog.climb.next) || state.climbBase || '6a', start: today(), place: null, note: '' }, pjErr: '', pjDel: '' }); renderPanel('projekty'); focusIn('#pj-name'); return true;
+    case 'pj-edit': { const p = BL.getProject(state, b.dataset.v); if (!p) return true; Object.assign(ui, { pj: { id: p.id, name: p.name, grade: p.grade, start: p.start, place: p.place || null, note: p.note || '' }, pjErr: '', pjDel: '' }); renderPanel('projekty'); window.scrollTo({ top: 0, behavior: 'auto' }); focusIn('#pj-name'); return true; }
+    case 'pj-place': ui.pj.place = ui.pj.place === b.dataset.v ? null : b.dataset.v; renderPanel('projekty'); return true;
+    case 'pj-save': saveProjectForm(); return true;
+    case 'pj-cancel': Object.assign(ui, { pj: null, pjErr: '' }); renderPanel('projekty'); focusIn('[data-act="pj-new"]'); return true;
+    case 'pj-del': ui.pjDel = b.dataset.v || ''; renderPanel('projekty'); focusIn(ui.pjDel ? '[data-act="pj-del-yes"]' : '[data-act="pj-new"]'); return true;
+    case 'pj-del-yes': { const p = BL.getProject(state, b.dataset.v); BL.deleteProject(state, b.dataset.v, now()); ui.pjDel = ''; if (ui.pj && ui.pj.id === b.dataset.v) ui.pj = null; commit(); toast('Projekt usunięty' + (p ? ': ' + p.name : '')); focusIn('[data-act="pj-new"]'); return true; }
     case 'bl-new': ui.blNew = b.dataset.v === '1'; renderPanel('bloki'); focusIn(ui.blNew ? '[data-act="bl-new-t"]' : '[data-act="bl-new"]'); return true;
     case 'bl-new-t': {
       const tr = b.dataset.v, kind = tr === 'bieg' ? 'run' : tr === 'wspin' ? 'climb' : 'timed';
@@ -580,11 +592,11 @@ function openLog(d, k, adhoc) {
   else if (k) { const it = BL.dayItems(state, d).find(x => x.k === k); bid = it ? it.b : null; }
   if (!bid) bid = adhoc ? 'bieg-spokojny' : null;
   if (!bid) return;
-  const f = { km: '', time: '', min: '', rpe: null, pain: null, grade: '', routes: '', place: null, note: '', rl: [], rg: state.climbBase || '6a', rs: 'rp', kg: '', dir: 'off' };
+  const f = { km: '', time: '', min: '', rpe: null, pain: null, grade: '', routes: '', place: null, note: '', rl: [], rg: state.climbBase || '6a', rs: 'rp', rp: '', kg: '', dir: 'off' };
   if (e) Object.assign(f, {
     km: e.km ? BL.fmtKm(e.km) : '', time: e.sec ? BL.fmtDur(e.sec) : '', min: e.dur && !e.sec ? String(Math.max(1, Math.round(e.dur / 60))) : '',
     rpe: e.rpe == null ? null : e.rpe, pain: e.pain == null ? null : e.pain, grade: e.grade || '', routes: e.routes ? String(e.routes) : '', place: e.place || null, note: e.note || '',
-    rl: e.rl ? e.rl.map(r => ({ g: r.g, s: r.s })) : []
+    rl: e.rl ? e.rl.map(r => (r.p ? { g: r.g, s: r.s, p: r.p } : { g: r.g, s: r.s })) : []
   });
   if (f.rl.length) f.rg = f.rl[f.rl.length - 1].g;
   // obciążenie zwisu: z wpisu albo domyślne (ostatni trening / przyjęta propozycja)
@@ -658,6 +670,19 @@ function saveLog() {
   const nb = newBadges(before, prog);
   toast((lg.edit ? 'Wpis poprawiony' : 'Zapisane: ' + b.name) + (gain > 0 ? ' · +' + gain + ' pkt' : '') + winsText(newWins(before, prog)) + levelUps(before, prog) + (nb.length ? ' · odznaka: ' + nb.map(x => x.name).join(', ') : ''));
   showTab(back, { scroll: false });
+}
+function saveProjectForm() {
+  const f = ui.pj;
+  if (!f) return;
+  const fail = (code, q) => { ui.pjErr = code; renderPanel('projekty'); focusIn(q); };
+  const name = (f.name || '').trim();
+  if (!name) { fail('name', '#pj-name'); return; }
+  if (!DATE.test(f.start || '') || f.start > today()) { fail('date', '#pj-start'); return; }
+  BL.saveProject(state, { id: f.id || null, name: name.slice(0, 60), grade: BL.GRADE_LIST.indexOf(f.grade) >= 0 ? f.grade : '6a', start: f.start, place: f.place, note: (f.note || '').trim().slice(0, 200) }, now());
+  Object.assign(ui, { pj: null, pjErr: '' });
+  commit();
+  toast((f.id ? 'Projekt poprawiony: ' : 'Nowy projekt: ') + name);
+  focusIn('[data-act="pj-new"]');
 }
 function openEditor(draft) {
   ui.ed = draft; ui.edAdd = false; ui.edErr = '';
@@ -763,6 +788,8 @@ function submitForm(f) {
     saveLog();
   } else if (f.dataset.form === 'block') {
     saveEditor();
+  } else if (f.dataset.form === 'project') {
+    saveProjectForm();
   } else if (f.dataset.form === 'login') {
     if (ui.lBusy) return;
     doLogin(val('email').trim(), val('password'));
@@ -836,6 +863,9 @@ document.addEventListener('change', e => {
   else if (n.id === 'lg-date' && ui.lg) ui.lg.d = n.value;
   else if (n.id === 'lg-grade' && ui.lg) ui.lg.f.grade = n.value;
   else if (n.id === 'lg-rg' && ui.lg) ui.lg.f.rg = n.value;
+  else if (n.id === 'lg-rp' && ui.lg) { ui.lg.f.rp = n.value; renderPanel('wpis'); }
+  else if (n.id === 'pj-grade' && ui.pj) ui.pj.grade = n.value;
+  else if (n.id === 'pj-start' && ui.pj) ui.pj.start = n.value;
   else if ((n.id === 'ed-t' || n.id === 'ed-kind') && ui.ed) { ui.ed[n.id === 'ed-t' ? 't' : 'kind'] = n.value; if (!ui.ed.items) ui.ed.items = []; renderPanel('blok'); }
   else if (n.classList && n.classList.contains('ed-f') && n.tagName === 'SELECT' && ui.ed) {
     const it = ui.ed.items[+n.dataset.i];
@@ -862,6 +892,10 @@ document.addEventListener('input', e => {
     }
     if (fld === 'km' || fld === 'time') { const pc = $('lg-pace'); const km = BL.parseKm(ui.lg.f.km), sec = BL.parseTime(ui.lg.f.time); if (pc) pc.innerHTML = km && sec ? 'Tempo: <b>' + BL.pace(km, sec) + '</b>' : 'Tempo policzy się samo.'; }
   } else if (ui.ed && /^ed-(name|note|min|km|gap)$/.test(n.id)) ui.ed[n.id.slice(3)] = n.value;
+  else if (ui.pj && /^pj-(name|note|start)$/.test(n.id)) {
+    ui.pj[n.id.slice(3)] = n.value;
+    if (ui.pjErr) { ui.pjErr = ''; n.removeAttribute('aria-invalid'); const hh = $('pj-h'); if (hh) { hh.classList.remove('is-err'); hh.removeAttribute('role'); hh.textContent = ''; } }
+  }
   else if (ui.ed && n.classList && n.classList.contains('ed-f') && n.tagName === 'INPUT') { const it = ui.ed.items[+n.dataset.i]; if (it) it[n.dataset.f] = n.value; }
 });
 // Błąd znika przy pierwszym znaku, bez przerysowania panelu (pole nie traci klawiatury ekranowej).

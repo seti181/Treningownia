@@ -189,6 +189,79 @@ async function open(b, o) {
     await o.ctx.close();
   }
 
+  // 11) projekty wspinaczkowe: nowy projekt, próby i przejście z listy dróg, punkty, dziennik, postęp, usunięcie
+  let pjSeed = null;
+  {
+    const seed = { v: 3, epoch: 0, start: '2026-11-01', phase: 1, phaseStart: '2026-11-01', updated: 10 };
+    const o = await open(b, { seed });
+    const pg = o.page, t = async q => ((await pg.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    const sv = () => pg.evaluate(k => JSON.parse(localStorage.getItem(k) || 'null'), KEY);
+    await go(pg, 'projekty');
+    ok('11 Projekty page from Więcej, empty', /Projekty/.test(await t('#projekty-in .t-title')) && /Nie masz projektu w trakcie/.test(await t('#projekty-in')));
+    await pg.click('[data-act="pj-new"]'); await pg.clock.runFor(100);
+    ok('11 new project form, focus on the name', (await pg.evaluate(() => document.activeElement.id)) === 'pj-name');
+    await pg.click('[data-act="pj-save"]'); await pg.clock.runFor(100);
+    ok('11 empty name: error, focus back on the name', (await pg.isVisible('#pj-h.is-err')) && (await pg.evaluate(() => document.activeElement.id)) === 'pj-name');
+    await pg.fill('#pj-name', 'Rysa'); await pg.selectOption('#pj-grade', '7a'); await pg.click('[data-act="pj-place"][data-v="Skała"]');
+    await pg.fill('#pj-note', 'Crux po trzecim przelocie'); await pg.press('#pj-note', 'Enter'); await pg.clock.runFor(200);
+    let s2 = await sv();
+    const rid = Object.keys(s2.projects)[0], rp = s2.projects[rid];
+    ok('11 project saved with Enter: name, grade, place, start today', rp && rp.name === 'Rysa' && rp.grade === '7a' && rp.place === 'Skała' && rp.start === '2026-11-24', JSON.stringify(rp));
+    ok('11 project card: grade, no tries yet, note', /7a.*Rysa.*Skała · od 24 lis.*Jeszcze bez prób.*Crux/.test(await t('#projekty-in .pj-i')), await t('#projekty-in .pj-i'));
+    await pg.screenshot({ path: OUT + 'b-14-projekty.png', fullPage: true });
+    await go(pg, 'dzis');
+    ok('11 climbing card on Dziś names the project', /Projekt: Rysa 7a · bez prób/.test(await t('#dzis-in .blk >> nth=1')), await t('#dzis-in .blk >> nth=1'));
+    const p0 = +((await t('#hdr-prog .hp-pts b')) || 0);
+    await pg.click('#dzis-in .blk .go[data-act="b-log"]'); await pg.clock.runFor(200);
+    await pg.selectOption('#lg-rp', rid); await pg.clock.runFor(50);
+    ok('11 picking the project sets and locks its grade', (await pg.isDisabled('#lg-rg')) && (await pg.inputValue('#lg-rg')) === '7a');
+    await pg.click('[data-act="lg-set"][data-v="rs:pr"]'); await pg.click('[data-act="lg-radd"]'); await pg.click('[data-act="lg-radd"]');
+    await pg.click('[data-act="lg-set"][data-v="rs:rp"]'); await pg.click('[data-act="lg-radd"]'); await pg.clock.runFor(50);
+    await pg.selectOption('#lg-rp', ''); await pg.selectOption('#lg-rg', '6a'); await pg.click('[data-act="lg-set"][data-v="rs:os"]'); await pg.click('[data-act="lg-radd"]'); await pg.clock.runFor(50);
+    ok('11 route list: three goes on the project with its name, one other route', (await pg.locator('.rl-list li').count()) === 4 && /Próba · Rysa/.test(await t('.rl-list li:nth-child(1)')) && /RP · Rysa/.test(await t('.rl-list li:nth-child(3)')) && !/Rysa/.test(await t('.rl-list li:nth-child(4)')));
+    await pg.screenshot({ path: OUT + 'b-15-projekt-wpis.png', fullPage: true });
+    await pg.click('[data-act="lg-save"]'); await pg.clock.runFor(200);
+    s2 = await sv(); const c = s2.blog['2026-11-24']['p1-wspinanie'];
+    ok('11 saved: routes keep the project id, grade 7a from the send', c && c.rl.filter(r => r.p === rid).length === 3 && !c.rl[3].p && c.grade === '7a', JSON.stringify(c));
+    ok('11 toast and card: project sent', /projekt przejdzony: Rysa 7a/.test(await t('#toast')) && /Rysa: 2 próby \+ RP/.test(await t('#dzis-in .blk.is-done')), await t('#toast'));
+    const p1 = +((await t('#hdr-prog .hp-pts b')) || 0);
+    ok('11 points: climb + 20 for the send', p1 - p0 >= 15 + 20, p0 + ' -> ' + p1);
+    await go(pg, 'dziennik');
+    ok('11 journal: project line with +20', /Projekt: Rysa ?7a · RP · 3\. próba ?\+20/.test(await t('#dziennik-in')), await t('#dziennik-in .jr-win'));
+    await go(pg, 'postep');
+    ok('11 Postęp: projects card with the send', /Projekty.*Rysa ?RP 24 lis/.test(await t('#postep-in .pj-sum')), await t('#postep-in .pj-sum'));
+    await go(pg, 'projekty');
+    ok('11 Projekty: Rysa under Przejdzone, 3rd go', /Przejdzone/.test(await t('#projekty-in')) && /Przejdzony 24 lis · RP · 3\. próba/.test(await t('#projekty-in .pj-i.is-sent')) && /Nie masz projektu w trakcie/.test(await t('#projekty-in')));
+    // edycja i usunięcie
+    await pg.click('[data-act="pj-new"]'); await pg.fill('#pj-name', 'Łuk'); await pg.click('[data-act="pj-save"]'); await pg.clock.runFor(200);
+    await pg.click('[data-act="pj-edit"][aria-label="Edytuj: Łuk"]'); await pg.clock.runFor(100);
+    await pg.fill('#pj-name', 'Łuk w okapie'); await pg.click('[data-act="pj-save"]'); await pg.clock.runFor(200);
+    ok('11 edit renames the project', /Łuk w okapie/.test(await t('#projekty-in .pj-i')) && (await pg.locator('#projekty-in .pj-i').count()) === 2);
+    pjSeed = await sv();
+    await pg.click('[data-act="pj-del"][aria-label="Usuń: Łuk w okapie"]'); await pg.clock.runFor(100);
+    ok('11 delete asks first, focus on Usuń', (await pg.isVisible('.pj-i .confirm')) && (await pg.evaluate(() => document.activeElement.dataset.act)) === 'pj-del-yes');
+    await pg.click('[data-act="pj-del-yes"]'); await pg.clock.runFor(200);
+    s2 = await sv();
+    ok('11 deleted: a sync marker, the sent project stays', (await pg.locator('#projekty-in .pj-i').count()) === 1 && Object.keys(s2.projects).some(id => s2.projects[id].del));
+    await o.ctx.close();
+  }
+  // 11) projekty na 320 px i w ciemnym motywie
+  for (const [name, c] of [['small', { viewport: { width: 320, height: 640 } }], ['dark', { colorScheme: 'dark' }]]) {
+    const o = await open(b, { ctx: c, seed: pjSeed });
+    await go(o.page, 'projekty');
+    check('11 ' + name + ': Projekty fit', !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
+    await o.page.screenshot({ path: OUT + 'b-3x-' + name + '-projekty.png', fullPage: true });
+    await go(o.page, 'dzis');
+    await o.page.click('#dzis-in .blk.is-done >> nth=0 >> [data-act="b-log"]'); await o.page.clock.runFor(200);
+    check('11 ' + name + ': log form with the project picker fits', (await o.page.isVisible('#lg-rp')) && !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
+    await o.page.screenshot({ path: OUT + 'b-3x-' + name + '-projekt-wpis.png', fullPage: true });
+    await o.page.click('[data-act="lg-cancel"]'); await o.page.clock.runFor(100);
+    await go(o.page, 'postep');
+    check('11 ' + name + ': Postęp fits', !(await o.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)));
+    await o.page.screenshot({ path: OUT + 'b-3x-' + name + '-postep.png', fullPage: true });
+    await o.ctx.close();
+  }
+
   // 9) 320 px i ciemny motyw: bez przewijania w bok
   for (const [name, c] of [['small', { viewport: { width: 320, height: 640 } }], ['dark', { colorScheme: 'dark' }]]) {
     const o = await open(b, { ctx: c });

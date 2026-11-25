@@ -12,7 +12,8 @@ const PLUS = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M
 const UP = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 10L8 5.5l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const DOWN = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6L8 10.5 12.5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const backHead = (to, label, eyebrow, title) => `<header class="t-head"><button type="button" class="back-btn" data-act="tab" data-v="${to}">${ICON.left}${esc(label)}</button><p class="eyebrow">${esc(eyebrow)}</p><h1 class="t-title">${esc(title)}</h1></header>`;
-const PAGE_NAME = { dzis: 'Dziś', tydzien: 'Tydzień', dziennik: 'Dziennik', postep: 'Postęp', wiecej: 'Więcej', bloki: 'Bloki' };
+const PAGE_NAME = { dzis: 'Dziś', tydzien: 'Tydzień', dziennik: 'Dziennik', postep: 'Postęp', wiecej: 'Więcej', bloki: 'Bloki', projekty: 'Projekty' };
+const tries = n => n + ' ' + plural(n, 'próba', 'próby', 'prób');
 
 // ---------- teksty ----------
 function summary(b) {
@@ -29,6 +30,19 @@ function styleCounts(rl) {
   const c = {};
   (rl || []).forEach(r => { c[r.s] = (c[r.s] || 0) + 1; });
   return BL.STYLE_IDS.filter(s => c[s]).map(s => c[s] + ' ' + (s === 'pr' ? plural(c[s], 'próba', 'próby', 'prób') : BL.styleName(s).replace('Flash', 'flash'))).join(', ');
+}
+// Projekty w sesji: „Rysa: 2 próby + RP”.
+function projText(st, rl) {
+  const by = {}, order = [];
+  (rl || []).forEach(r => {
+    if (!r.p) return;
+    if (!by[r.p]) { by[r.p] = { n: 0, sent: null }; order.push(r.p); }
+    if (BL.SENT(r.s)) by[r.p].sent = r.s; else by[r.p].n++;
+  });
+  return order.map(id => {
+    const p = BL.getProject(st, id), o = by[id];
+    return p ? p.name + ': ' + [o.n ? tries(o.n) : '', o.sent ? BL.styleName(o.sent) : ''].filter(Boolean).join(' + ') : '';
+  }).filter(Boolean).join(', ');
 }
 // Obciążenie zwisu: „20 mm · odciążenie 10 kg · 86% wagi”.
 function hangText(st, d, e) {
@@ -51,6 +65,8 @@ function detail(e, st, d) {
     if (e.grade) out.push('max ' + e.grade);
     if (e.routes) out.push(e.routes + ' ' + plural(e.routes, 'droga', 'drogi', 'dróg'));
     if (e.rl && e.rl.length) out.push(styleCounts(e.rl));
+    const pt = st ? projText(st, e.rl) : '';
+    if (pt) out.push(pt);
   } else if (e.t === 'palce' && e.mm) {
     const t = hangText(st, d, e);
     if (t) out.push(t);
@@ -156,12 +172,21 @@ function chartsFingersHTML(st, today) {
   return h + '</div>';
 }
 const MON_SHORT = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
+// Projekty na Postępie: te w trakcie i ostatnie przejścia.
+function projectsSumHTML(st, today) {
+  const pl = BL.projectList(st);
+  let h = '<figure class="cc pj-sum"><figcaption class="cc-h">Projekty</figcaption>';
+  if (!pl.active.length && !pl.sent.length) return h + '<p class="empty">Dodaj drogę, nad którą pracujesz: próby policzą się z listy dróg.</p><button type="button" class="chip-btn sm" data-act="tab" data-v="projekty">Dodaj projekt</button></figure>';
+  h += '<ul class="pj-l">' + pl.active.slice(0, 4).map(p => `<li>${V.gtag(p.grade)}<span class="pj-n">${esc(p.name)}</span><span class="pj-x">${p.tries ? tries(p.tries) : 'bez prób'}</span></li>`).join('') +
+    pl.sent.slice(0, 3).map(p => `<li class="is-sent">${V.gtag(p.grade)}<span class="pj-n">${esc(p.name)}</span><span class="pj-x">${esc(BL.styleName(p.sent.s) + ' ' + dayMon(p.sent.d))}</span></li>`).join('') + '</ul>';
+  return h + '<button type="button" class="chip-btn sm" data-act="tab" data-v="projekty">Wszystkie projekty</button></figure>';
+}
 function chartsClimbHTML(st, today) {
   const cs = BL.climbStats(st, today, 90, 6);
   const subOf = g => { const s = cs.byStyle[g]; return s ? styleCounts(Object.keys(s).reduce((a, k) => a.concat(Array(s[k]).fill({ s: k })), [])) : ''; };
   const grades = BL.GRADE_LIST.filter(g => cs.byGrade[g]).reverse().map(g => ({ k: g, n: cs.byGrade[g], sub: subOf(g) }));
   const places = BL.PLACES.concat(['Bez miejsca']).filter(p => cs.byPlace[p]).map(p => ({ k: p, n: cs.byPlace[p] }));
-  let h = '<div class="charts">';
+  let h = '<div class="charts">' + projectsSumHTML(st, today);
   h += hBars('Przejścia według wyceny, 90 dni', '--p4', grades, '');
   h += hBars('Gdzie się wspinasz, 90 dni', '--p4', places, '');
   const got = cs.monthly.filter(m => m.i >= 0);
@@ -217,6 +242,10 @@ function proposalsHTML(st, today) {
     `<div class="choices"><button type="button" class="chip-btn sm primary" data-act="pr-ok" data-v="${esc(p.id)}">Przyjmij</button><button type="button" class="chip-btn sm" data-act="pr-no" data-v="${esc(p.id)}">Nie teraz</button></div></li>`).join('') + '</ul></section>';
   return h;
 }
+// Na karcie wspinania: najwyżej dwa projekty w trakcie.
+function projectsLine(st) {
+  return BL.projectList(st).active.slice(0, 2).map(p => `<p class="blk-pace">Projekt: ${esc(p.name)} ${esc(p.grade)} · ${p.tries ? tries(p.tries) : 'bez prób'}</p>`).join('');
+}
 function todayBlocksHTML(st, today, prog) {
   const items = BL.dayView(st, today);
   let h = `<h2 class="sub-h">Trening <button type="button" class="linkish sub-link" data-act="tab" data-v="tydzien">Plan tygodnia</button></h2>${phaseLine(st, today)}${proposalsHTML(st, today)}`;
@@ -240,7 +269,7 @@ function todayBlocksHTML(st, today, prog) {
     } else if (!b) {
       h += `<p class="sess-list">Tego bloku nie ma już w bibliotece.</p><div class="choices blk-acts"><button type="button" class="chip-btn sm" data-act="b-remove" ${ds}>Usuń z dnia</button></div>`;
     } else {
-      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${hangInfo(st, b, today)}${b.kind === 'climb' && BL.climbNote(st) ? `<p class="blk-warn">${esc(BL.climbNote(st))}</p>` : ''}`;
+      h += `<p class="sess-list">${esc(b.kind === 'run' ? b.note : summary(b))}</p>${runInfo(st, b, today)}${hangInfo(st, b, today)}${b.kind === 'climb' ? projectsLine(st) : ''}${b.kind === 'climb' && BL.climbNote(st) ? `<p class="blk-warn">${esc(BL.climbNote(st))}</p>` : ''}`;
       h += timedRun(b)
         ? `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-start" ${ds}>${b.kind === 'run' ? 'Zacznij z zegarem' : 'Zacznij'}</button>`
         : `<button type="button" class="go${i === firstOpen ? '' : ' secondary'}" data-act="b-log" ${ds}>Zapisz trening</button>`;
@@ -365,8 +394,12 @@ function logFormHTML(st, today, ui) {
     h += `<div class="fld"><span>Gdzie</span><div class="choices" role="group" aria-label="Gdzie">${BL.PLACES.map(p => `<button type="button" class="chip-btn sm" data-act="lg-set" data-v="place:${p}" aria-pressed="${f.place === p ? 'true' : 'false'}">${p}</button>`).join('')}</div></div>`;
     // lista dróg: wycena + styl + „Dodaj drogę”
     h += `<fieldset class="fld routes"><legend>Drogi</legend>`;
-    if (rl.length) h += `<ol class="rl-list">${rl.map((r, i) => `<li class="${BL.SENT(r.s) ? '' : 'rl-pr'}"><span class="rl-n">${i + 1}.</span><b class="rl-g">${esc(r.g)}</b><span class="rl-s">${esc(BL.styleName(r.s))}</span><button type="button" class="icon-btn" data-act="lg-rdel" data-v="${i}" aria-label="Usuń drogę ${i + 1}: ${esc(r.g)} ${esc(BL.styleName(r.s))}">${ICON.x}</button></li>`).join('')}</ol>`;
-    h += `<div class="rl-add"><label class="fld sm"><span>Wycena</span><select id="lg-rg">${BL.GRADE_LIST.map(g => `<option${f.rg === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
+    if (rl.length) h += `<ol class="rl-list">${rl.map((r, i) => `<li class="${BL.SENT(r.s) ? '' : 'rl-pr'}"><span class="rl-n">${i + 1}.</span><b class="rl-g">${esc(r.g)}</b><span class="rl-s">${esc(BL.styleName(r.s))}${r.p && BL.getProject(st, r.p) ? ' · ' + esc(BL.getProject(st, r.p).name) : ''}</span><button type="button" class="icon-btn" data-act="lg-rdel" data-v="${i}" aria-label="Usuń drogę ${i + 1}: ${esc(r.g)} ${esc(BL.styleName(r.s))}">${ICON.x}</button></li>`).join('')}</ol>`;
+    // projekty do wyboru: w trakcie i te, które już są na tej liście (przy poprawianiu wpisu z przejściem)
+    const pjl = BL.projectList(st), pjs = pjl.active.concat(pjl.sent.filter(p => rl.some(r => r.p === p.id)));
+    const pj = f.rp ? BL.getProject(st, f.rp) : null;
+    if (pjs.length) h += `<label class="fld rl-pj"><span>Projekt</span><select id="lg-rp"><option value="">Bez projektu</option>${pjs.map(p => `<option value="${esc(p.id)}"${f.rp === p.id ? ' selected' : ''}>${esc(p.name + ' · ' + p.grade)}</option>`).join('')}</select></label>`;
+    h += `<div class="rl-add"><label class="fld sm"><span>Wycena</span><select id="lg-rg"${pj ? ' disabled' : ''}>${BL.GRADE_LIST.map(g => `<option${(pj ? pj.grade : f.rg) === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
       `<div class="fld rl-st"><span id="lg-rs-l">Styl</span><div class="choices" role="group" aria-labelledby="lg-rs-l">${BL.STYLES.map(s => `<button type="button" class="chip-btn sm" data-act="lg-set" data-v="rs:${s.id}" aria-pressed="${f.rs === s.id ? 'true' : 'false'}">${s.name}</button>`).join('')}</div></div></div>` +
       `<button type="button" class="chip-btn primary rl-go" data-act="lg-radd">${PLUS}Dodaj drogę</button>`;
     h += `<p class="rl-sum" id="lg-rl-sum" aria-live="polite">${rl.length ? (rs.grade ? 'Najtrudniejsza przejdzona: <b>' + esc(rs.grade) + '</b> · ' : 'Bez przejścia · ') + rl.length + ' ' + plural(rl.length, 'droga', 'drogi', 'dróg') : 'OS: pierwsza próba bez wiedzy o drodze. Flash: pierwsza próba z wiedzą. RP: po próbach. Próba: bez przejścia.'}</p></fieldset>`;
@@ -482,6 +515,41 @@ function editorHTML(st, ui) {
   return h;
 }
 
-Object.assign(V, { chartsRunHTML, chartsClimbHTML, chartsFingersHTML, kgLine, hangText, phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
+// ---------- projekty wspinaczkowe (Więcej → Projekty) ----------
+function projectCard(p, today, ui) {
+  const meta = [p.place, 'od ' + dayMon(p.start)].filter(Boolean).join(' · ');
+  const line = p.sent ? 'Przejdzony ' + dayMon(p.sent.d) + ' · ' + BL.styleName(p.sent.s) + ' · ' + p.sent.tries + '. próba'
+    : p.tries ? tries(p.tries) + ' · ' + p.sessions + ' ' + plural(p.sessions, 'sesja', 'sesje', 'sesji') + ' · ostatnio ' + relDay(p.last, today) : 'Jeszcze bez prób';
+  let h = `<li class="card lib-i pj-i${p.sent ? ' is-sent' : ''}" style="--c:var(--p4)"><div class="lib-top">${V.gtag(p.grade)}<span class="wk-t"><b>${esc(p.name)}</b><small>${esc(meta)}</small></span></div>` +
+    `<p class="blk-pace">${esc(line)}</p>${p.note ? `<p class="lib-sum">${esc(p.note)}</p>` : ''}`;
+  if (ui.pjDel === p.id) {
+    h += `<div class="confirm"><p><b>Usunąć projekt?</b> Wpisy wspinania zostają, drogi stracą tylko nazwę projektu${p.sent ? ', a przejście swoje punkty' : ''}.</p><div class="choices"><button type="button" class="chip-btn sm danger" data-act="pj-del-yes" data-v="${esc(p.id)}">Usuń</button><button type="button" class="chip-btn sm" data-act="pj-del" data-v="">Anuluj</button></div></div>`;
+  } else {
+    h += `<div class="choices"><button type="button" class="chip-btn sm" data-act="pj-edit" data-v="${esc(p.id)}" aria-label="Edytuj: ${esc(p.name)}">Edytuj</button><button type="button" class="chip-btn sm" data-act="pj-del" data-v="${esc(p.id)}" aria-label="Usuń: ${esc(p.name)}">Usuń</button></div>`;
+  }
+  return h + '</li>';
+}
+function projectFormHTML(today, ui) {
+  const f = ui.pj, err = { name: 'Wpisz nazwę drogi.', date: 'Wybierz datę, najpóźniej dziś.' }[ui.pjErr] || '';
+  let h = `<form class="card form pj-f" data-form="project" novalidate><h2>${f.id ? 'Popraw projekt' : 'Nowy projekt'}</h2>`;
+  h += `<label class="fld"><span>Nazwa drogi</span><input type="text" id="pj-name" maxlength="60" autocomplete="off" enterkeyhint="done" value="${esc(f.name || '')}"${ui.pjErr === 'name' ? ' aria-invalid="true"' : ''} aria-describedby="pj-h"></label>`;
+  h += `<div class="row"><label class="fld sm"><span>Wycena</span><select id="pj-grade">${BL.GRADE_LIST.map(g => `<option${f.grade === g ? ' selected' : ''}>${g}</option>`).join('')}</select></label>` +
+    `<label class="fld sm"><span>Od kiedy</span><input type="date" id="pj-start" value="${esc(f.start || '')}" max="${today}"${ui.pjErr === 'date' ? ' aria-invalid="true"' : ''} aria-describedby="pj-h"></label></div>`;
+  h += `<div class="fld"><span id="pj-pl-l">Gdzie (opcjonalnie)</span><div class="choices" role="group" aria-labelledby="pj-pl-l">${BL.PLACES.map(p => `<button type="button" class="chip-btn sm" data-act="pj-place" data-v="${p}" aria-pressed="${f.place === p ? 'true' : 'false'}">${p}</button>`).join('')}</div></div>`;
+  h += `<label class="fld"><span>Notatka (opcjonalnie)</span><input type="text" id="pj-note" maxlength="200" autocomplete="off" value="${esc(f.note || '')}"></label>`;
+  h += `<p class="wq-h${err ? ' is-err' : ''}" id="pj-h"${err ? ' role="alert"' : ''}>${esc(err)}</p>`;
+  return h + '<button type="button" class="go" data-act="pj-save">Zapisz projekt</button><div class="choices"><button type="button" class="chip-btn" data-act="pj-cancel">Anuluj</button></div></form>';
+}
+function projectsHTML(st, today, ui) {
+  const pl = BL.projectList(st);
+  let h = backHead('wiecej', 'Więcej', 'Wspinanie', 'Projekty');
+  h += `<p class="pj-intro">Drogi, nad którymi pracujesz. Próby dopisujesz w liście dróg przy zapisie wspinania: wybierz projekt i styl. Przejście (RP, OS albo flash) kończy projekt: +${BL.PROJECT_PTS} pkt.</p>`;
+  h += ui.pj ? projectFormHTML(today, ui) : `<button type="button" class="go pj-add" data-act="pj-new">${PLUS}Nowy projekt</button>`;
+  h += '<h2 class="sub-h">W trakcie</h2>' + (pl.active.length ? '<ul class="lib pj">' + pl.active.map(p => projectCard(p, today, ui)).join('') + '</ul>' : '<p class="empty">Nie masz projektu w trakcie.</p>');
+  if (pl.sent.length) h += '<h2 class="sub-h">Przejdzone</h2><ul class="lib pj">' + pl.sent.map(p => projectCard(p, today, ui)).join('') + '</ul>';
+  return h;
+}
+
+Object.assign(V, { projectsHTML, projectText: projText, chartsRunHTML, chartsClimbHTML, chartsFingersHTML, kgLine, hangText, phaseLine, proposalsHTML, challengesHTML, recordsHTML, todayBlocksHTML, weekHTML, logFormHTML, libraryHTML, editorHTML, blockSummary: summary, entryDetail: detail, ttape });
 if (typeof module !== 'undefined' && module.exports) module.exports = V;
 })(typeof window !== 'undefined' ? window : globalThis);

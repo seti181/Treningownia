@@ -256,6 +256,7 @@ ${moveSection}
 ${panel('plan', 'wiecej')}
 ${panel('ustawienia', 'wiecej')}
 ${panel('bloki', 'wiecej')}
+${panel('projekty', 'wiecej')}
 ${panel('blok', 'wiecej')}
 ${panel('wpis', 'dzis')}
 </main>

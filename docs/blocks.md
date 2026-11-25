@@ -53,7 +53,11 @@ Code: `src/blocks.js` (logic, `window.BLOCKS`), `src/blocks-views.js` (screens, 
 - With a list, the entry's `grade` (hardest sent route, `routeSum`) and `routes` (all routes, tries included) are filled in from it, and the manual fields hide. Without a list the old fields stay: hardest route and number of routes.
 - Shown as "max 6a+ · 3 drogi · 1 OS, 1 RP, 1 próba" on Dziś, Tydzień and Dziennik. Points per session are unchanged (owner, 24 November 2026). Climbing level and real form keep using the hardest sent grade.
 - Record "Najtrudniejszy OS albo flash" (`os`).
-- Projects (named routes with attempts) are for later.
+- **Projects** (Więcej → Projekty, `projects`): a route being worked on: name, grade, start date, optional place and note. Add, edit and delete (with a confirmation; a deletion marker syncs).
+  - In the climbing log form a "Projekt" picker sits above the grade (only when there are projects); picking one sets and locks the grade, and each route added gets `p: <projectId>`. The list shows "RP · Rysa".
+  - Computed from the log every time (`BLOCKS.projectList`): tries (routes with that `p`), sessions, last try, and the send: the first OS, Flash or RP on it (date, style, which try). Tries after the send don't count. Deleting the send's entry reopens the project.
+  - A send earns **+20** (`PROJECT_PTS`) on its day, counts to the climbing level, gives the badge "Pierwszy projekt", and shows as a toast, a "Projekt: …" line in Dziennik and on the Postęp card "Projekty" (active ones, last sends). Deleting a sent project removes its points (owner, 25 November 2026: +20 and a badge, tries earn nothing extra).
+  - The Dziś climbing card names up to two active projects with their tries; the session detail says "Rysa: 2 próby + RP".
 
 ## Hangboard loads
 
@@ -145,11 +149,12 @@ Default week (`DEFAULT_WEEK`, 0 = Sunday): Pn bieg spokojny + rozciąganie, Wt p
 
 ```
 blocks: { <id>: block | { del: true, at } }     // own blocks ('u…') and changed built-ins (same id as the built-in)
+projects: { <id>: { id, name, grade, start, place?, note?, at } | { del: true, at } }   // climbing projects ('p…'), merged per id by at
 week:   null | { 0..6: [blockId, …] }, weekAt   // null = DEFAULT_WEEK
 days:   { 'YYYY-MM-DD': { items: [ { k, b, skip? } ], at } }   // a changed day replaces the pattern for that date
 blog:   { 'YYYY-MM-DD': { <k>: entry | { del: true, at } } }
 block = { id, name, kind, t, min, km?, note, gap?, items?, at }
-entry = { b, t, kind, name, done: true, at, dur?, km?, sec?, rpe?, pain?, grade?, routes?, rl?: [ { g: grade, s: 'os' | 'fl' | 'rp' | 'pr' } ], place?, kg?: -100..60, mm?: 20 | 15, note?, partial? }
+entry = { b, t, kind, name, done: true, at, dur?, km?, sec?, rpe?, pain?, grade?, routes?, rl?: [ { g: grade, s: 'os' | 'fl' | 'rp' | 'pr', p?: projectId } ], place?, kg?: -100..60, mm?: 20 | 15, note?, partial? }
 hold item in a block: … kg? (target load set by an accepted proposal)
 ```
 

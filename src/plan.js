@@ -142,7 +142,7 @@ function defaults(today) {
   return {
     v: 3, epoch: 0, start: d, phase: 1, phaseStart: d, dayOffset: 0, rung: 1, rungGreen: 0,
     snooze: null, breakAck: null, gates: {}, log: {}, morning: {}, events: [], weight: {}, weightGoal: null, weightGoalAt: 0,
-    blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, climbBase: '6a', runBase: 0, levelsAt: 0,
+    blocks: {}, week: null, weekAt: 0, days: {}, blog: {}, projects: {}, climbBase: '6a', runBase: 0, levelsAt: 0,
     cycle: { start: addDays(d, -((dow(d) + 6) % 7)), build: 3, recover: 1 }, cycleAt: 0, props: {}, rehabDone: null, rehabDoneAt: 0, updated: 0
   };
 }
@@ -325,6 +325,7 @@ const BADGES = [
   { id: 'km50', name: '50 km', desc: 'Pięćdziesiąt kilometrów biegu' },
   { id: 'km100', name: '100 km', desc: 'Sto kilometrów biegu' },
   { id: 'wspin10', name: '10 wspinaczek', desc: 'Dziesięć zapisanych wspinań' },
+  { id: 'projekt1', name: 'Pierwszy projekt', desc: 'Przejdzony pierwszy projekt' },
   { id: 'wyzwanie1', name: 'Pierwsze wyzwanie', desc: 'Pierwsze zaliczone wyzwanie tygodnia' },
   { id: 'wyzwania10', name: '10 wyzwań', desc: 'Dziesięć zaliczonych wyzwań tygodnia' },
   { id: 'rekord1', name: 'Nowy rekord', desc: 'Pierwszy pobity rekord' },
@@ -422,6 +423,13 @@ function progress(st, today) {
     if (i === 0) award('rekord1', r.d);
     if (i === 9) award('rekord10', r.d);
   });
+  // przejdzone projekty: punkty w dniu przejścia, do poziomu wspinania
+  const projectSends = BL ? BL.projectSends(st) : [];
+  projectSends.forEach((s, i) => {
+    addDay(s.d, s.pts); byEntry[s.d + '|prj:' + s.id] = s.pts;
+    climbPts += s.pts;
+    if (i === 0) award('projekt1', s.d);
+  });
   const mDays = Object.keys(st.morning).sort();
   mDays.forEach((d, i) => { addDay(d, MORNING_PTS); if (i === 6) award('poranek', d); });
   const seenP = {}, seenR = {};
@@ -434,7 +442,7 @@ function progress(st, today) {
   const alive = last && today && (diff(last, today) <= 1 || (diff(last, today) === 2 && !shieldUsed[monday(addDays(today, -1))]));
   return {
     total, grade: gradeOf(total), sessions, minutes: Math.round(seconds / 60), streak: alive ? run : 0, best, shields,
-    blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks, chDone, recordEvents,
+    blocks, runs, climbs, fingers, km: Math.round(km * 10) / 10, fullWeeks, chDone, recordEvents, projectSends,
     climb: climbLevel(st, climbPts), run: runLevel(st, runPts),
     badges: BADGES.map(b => Object.assign({}, b, { d: earned[b.id] || null })), byEntry, byDay
   };

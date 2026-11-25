@@ -37,7 +37,7 @@ async function open(browser, o) {
     await page.screenshot({ path: OUT + 'v2-02-postep.png', fullPage: true });
     await go(page, 'wiecej');
     await page.screenshot({ path: OUT + 'v2-07-wiecej.png' });
-    check('1 more: five menu items', (await page.locator('#wiecej-in .menu-i').count()) === 5);
+    check('1 more: six menu items, Projekty included', (await page.locator('#wiecej-in .menu-i').count()) === 6 && (await page.isVisible('#wiecej-in [data-v="projekty"]')));
     await go(page, 'atlas'); await page.clock.runFor(1300);
     await page.screenshot({ path: OUT + 'v2-03-atlas.png' });
     check('1 atlas under Więcej: tab Więcej selected', (await page.getAttribute('#tb-wiecej', 'aria-selected')) === 'true' && (await page.isVisible('#tab-atlas')));

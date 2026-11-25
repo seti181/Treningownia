@@ -32,6 +32,7 @@ Live at https://seti181.github.io/Treningownia/ (public repository github.com/se
 | Two levels (climbing from 6a, running to 1:20) with real-form lines and a level-up celebration | done | blocks.md |
 | Charts: km per week, longest run, half-marathon trend; grade pyramid, places, hardest grade per month | done | blocks.md |
 | Route list per climbing session (grade and style: OS, Flash, RP, Próba), pyramid by style, OS/flash record | done | blocks.md |
+| Climbing projects: Więcej → Projekty, tries and sends from the route list, +20 per send, badge, Postęp card | done | blocks.md |
 | Hangboard loads: weight off or added, % of body weight, finger chart, hang records, proposals take 2 kg less off first | done | blocks.md |
 | Cloud sync (Firebase over REST) | built and tested against a fake; skipped by the owner (2026-11-25), switched off | sync.md |
 
@@ -47,8 +48,7 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 1. **Use it for a couple of weeks**, then tune: points per block, challenge targets, proposal steps. Real phones may show things tests can't (voice, vibration, wake lock, installing).
 2. **The 5 km test (mid-December 2026):** the app proposes it after 6 logged runs; after the test, decide with the owner when tempo, interval and stride blocks join the week.
 3. **Race plan for the half marathon** (possibly Porto, September 2027): phases counted back from race day (base, build, peak, taper), weekly long-run and volume targets, race-pace sessions.
-4. **Climbing projects:** named routes you're working on (grade, place), attempts counted from the route list, the send date.
-5. **Hangboard after rehab:** added weight unlocks with "Koniec rehabilitacji"; then decide steps for added weight with the owner.
+4. **Hangboard after rehab:** added weight unlocks with "Koniec rehabilitacji"; then decide steps for added weight with the owner.
 
 ## Open questions
 
@@ -84,3 +84,4 @@ Items 1 to 4 are built and live (see the decision log). Item 5 was the "later an
 - 2026-11-24: items 4 and 5 of Next built, with the owner's go: a route list per climbing session (OS, Flash, RP, Próba; grade and count come from the list; points per session unchanged; projects later) and hangboard loads (weight off with feet on the bathroom scale, % of body weight from the nearest weight entry, no added weight while rehab is on, proposals take off 2 kg less first). Fixed: a session under 30 s opened its log form with "0" minutes, which the form then refused.
 - 2026-11-25: security review and fixes: a strict CSP in the page (only the build's scripts run, data only to Firebase), `esc()` also escapes `'`, `sanitize()` drops a `__proto__` proposal id, CI deploy rights only in the deploy job and actions pinned to SHAs, made-up body weights in tests and docs. Firebase setup hardened before it starts: sign-ups and deletion off, rules pinned to the owner's UID with a size limit, the key restricted to the app's address (docs/sync.md).
 - 2026-11-25: cloud sync skipped: losing the phone's data is acceptable to the owner. The sync code stays, switched off (empty `src/config.js`); docs/sync.md keeps the hardened setup in case that changes. The backup file in Ustawienia is the way to keep a copy.
+- 2026-11-25: climbing projects built, with the owner's go: Więcej → Projekty (name, grade, start, place, note), tries picked in the route list, the first OS/Flash/RP sends it (+20 on that day, toward the climbing level, badge "Pierwszy projekt"); everything computed from the log.

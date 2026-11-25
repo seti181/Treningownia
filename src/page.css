@@ -537,6 +537,21 @@ fieldset.fld > legend { padding: 0; margin-bottom: 6px; font-size: 12.5px; lette
 .lib-i .confirm { margin: 0; }
 .lib-new { margin-top: 22px; max-width: 780px; }
 
+/* ---------- projekty wspinaczkowe ---------- */
+.pj-intro { margin: 0 0 14px; color: var(--muted); max-width: 640px; line-height: 1.45; }
+.pj-add .ico { margin-right: 6px; }
+.pj-f { max-width: 640px; }
+.pj-f h2 { margin: 0; }
+.pj-i.is-sent { border-left-color: var(--line); }
+.pj-sum { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.pj-l { list-style: none; margin: 0; padding: 0; width: 100%; }
+.pj-l li { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.pj-l li + li { border-top: 1px solid var(--line); }
+.pj-n { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.pj-x { flex: none; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+.pj-l .is-sent .pj-n { color: var(--muted); font-weight: 500; }
+.routes .rl-pj { flex: none; margin-bottom: 10px; max-width: 360px; } /* .fld stoi niżej w pliku: flex-basis nie może stać się wysokością */
+
 /* ---------- edytor bloku ---------- */
 .ed-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .ed-it { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; }
