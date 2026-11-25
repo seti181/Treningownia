@@ -654,14 +654,16 @@ function settingsHTML(st, today, ui, sync) {
   }
   h += '</section>';
   // kopia zapasowa
-  h += `<section class="card form" id="kopia"><h2>Kopia zapasowa</h2><p>Plik ze wszystkimi danymi: treningami, wagą i ustawieniami planu. Zapisz go co jakiś czas, np. na Dysku Google. Wczytanie kopii łączy ją z danymi na tym urządzeniu i niczego nie usuwa.</p>` +
+  h += `<section class="card form" id="kopia"><h2>Kopia zapasowa</h2><p>Plik ze wszystkimi danymi: treningami, wagą i ustawieniami planu. Zapisz go co jakiś czas, np. na Dysku Google. Wczytanie kopii łączy ją z danymi na tym urządzeniu. Jeśli kopia coś by stąd usunęła, zobaczysz to przed wczytaniem.</p>` +
     `<div class="choices"><button type="button" class="chip-btn primary" data-act="bk-save">Zapisz kopię</button>${ui.canShare ? '<button type="button" class="chip-btn" data-act="bk-share">Wyślij kopię</button>' : ''}<button type="button" class="chip-btn" data-act="bk-pick">Wczytaj kopię</button></div>` +
     `<input type="file" id="bk-file" accept=".json,application/json" hidden>`;
   if (ui.bkErr) h += `<div class="alert bad" role="alert"><p>${esc(ui.bkErr)}</p></div>`;
   if (ui.bk) {
     const c = ui.bk.counts, when = ui.bk.exported ? new Date(ui.bk.exported) : null;
     const whenTxt = when && !isNaN(when) ? longNoDay(PL.ymd(when)) + ' ' + when.getFullYear() : 'nieznana data';
-    h += `<div class="confirm" role="alertdialog" aria-labelledby="bk-q"><p id="bk-q"><b>Kopia z ${esc(whenTxt)}:</b> ${c.sessions} ${plural(c.sessions, 'sesja', 'sesje', 'sesji')}, ${pomiary(c.weights)} wagi. Wczytać i połączyć z danymi na tym urządzeniu?</p>` +
+    const loss = ui.bk.loss || 0;
+    h += `<div class="confirm" role="alertdialog" aria-labelledby="bk-q"${loss ? ' aria-describedby="bk-loss"' : ''}><p id="bk-q"><b>Kopia z ${esc(whenTxt)}:</b> ${c.sessions} ${plural(c.sessions, 'sesja', 'sesje', 'sesji')}, ${pomiary(c.weights)} wagi. Wczytać i połączyć z danymi na tym urządzeniu?</p>` +
+      (loss ? `<p id="bk-loss"><b>Uwaga:</b> wczytanie usunie z tego telefonu ${loss} ${plural(loss, 'pozycję', 'pozycje', 'pozycji')}: w kopii są oznaczone jako usunięte albo historia rehabilitacji była tam wyczyszczona. Wczytuj tylko własne kopie.</p>` : '') +
       `<div class="choices"><button type="button" class="chip-btn primary" data-act="bk-apply">Wczytaj</button><button type="button" class="chip-btn" data-act="bk-cancel">Anuluj</button></div></div>`;
   }
   h += '</section>';

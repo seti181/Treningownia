@@ -262,6 +262,25 @@ async function open(b, o) {
     await o.ctx.close();
   }
 
+  // 12) cudzysłów w powtórzeniach bloku trafia do id propozycji (data-v): przyjęcie nie wywraca odświeżenia panelu
+  {
+    require('../src/core.js'); require('../src/plan.js'); const BLK = require('../src/blocks.js');
+    const sp = JSON.parse(JSON.stringify(BLK.BUILTIN.find(x => x.id === 'sila-pompki')));
+    sp.items[1].reps = '10"x'; sp.at = 1000;
+    const e = (at) => ({ b: 'sila-pompki', t: 'sila', kind: 'timed', name: 'Pompki', done: true, at, rpe: 5, pain: 0, dur: 900 });
+    const seed = { v: 3, epoch: 0, start: '2026-11-01', phase: 1, phaseStart: '2026-11-01', updated: 10, blocks: { 'sila-pompki': sp },
+      blog: { '2026-11-21': { q1: e(2000) }, '2026-11-22': { q2: e(3000) } } };
+    const before = errors.length;
+    const o = await open(b, { seed });
+    const pg = o.page, t = async q => ((await pg.textContent(q)) || '').replace(/\s+/g, ' ').trim();
+    const btn = pg.locator('[data-act="pr-ok"][data-v*="sila-pompki"]');
+    ok('12 strength proposal with a quote in its id is shown', (await btn.count()) === 1 && /"/.test(await btn.getAttribute('data-v')));
+    await btn.focus(); await btn.click(); await pg.clock.runFor(300);
+    const s2 = await pg.evaluate(k => JSON.parse(localStorage.getItem(k)), KEY);
+    ok('12 accepted without a page error, toast shown, reps bumped', errors.length === before && /Przyjęte/.test(await t('#toast')) && s2.blocks['sila-pompki'].items[1].reps === '11"x', errors.slice(before).join(' | '));
+    await o.ctx.close();
+  }
+
   // 9) 320 px i ciemny motyw: bez przewijania w bok
   for (const [name, c] of [['small', { viewport: { width: 320, height: 640 } }], ['dark', { colorScheme: 'dark' }]]) {
     const o = await open(b, { ctx: c });

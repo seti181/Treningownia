@@ -179,6 +179,16 @@ const remote = () => (srv.doc ? JSON.parse(srv.doc.json) : null);
   await C.page.click('[data-act="bk-apply"]'); await settle(C.page, 500);
   const lc = await st(C.page);
   check('13 backup: saved as a file, read on another device, summary first', dl.suggestedFilename() === 'treningownia-kopia-2026-11-24.json' && /pomiary wagi|pomiarów wagi/.test(q) && lc.weight['2026-11-24'].kg === 71.5 && lc.weightGoal === 56, dl.suggestedFilename() + ' | ' + q);
+  check('13 own backup: no removal warning', !/Uwaga/.test(q));
+  // obcy plik z znacznikiem usunięcia: ostrzeżenie przed wczytaniem, Anuluj nic nie zmienia
+  const bad = OUT + 's-kopia-usuwa.json';
+  require('fs').writeFileSync(bad, JSON.stringify({ app: 'treningownia', format: 1, exported: '2026-11-24T08:00:00Z', state: { start: '2026-11-01', updated: 1, weight: { '2026-11-24': { del: true, at: 9e15 } } } }));
+  await C.page.setInputFiles('#bk-file', bad);
+  await C.page.waitForSelector('#bk-loss');
+  const warn = ((await C.page.textContent('#bk-loss')) || '').replace(/\s+/g, ' ');
+  await C.page.screenshot({ path: OUT + 's-05-backup-warning.png', fullPage: true });
+  await C.page.click('[data-act="bk-cancel"]'); await settle(C.page, 300);
+  check('13 a file that deletes: warning with the count before import, cancel keeps the data', /usunie z tego telefonu 1 pozycję/.test(warn) && (await st(C.page)).weight['2026-11-24'].kg === 71.5, warn);
 
   await A.ctx.close(); await B.ctx.close(); await C.ctx.close();
   await b.close();

@@ -127,9 +127,11 @@ const cap1 = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 const clone = o => JSON.parse(JSON.stringify(o));
 const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
+// Tylko własne klucze: „constructor” czy „toString” nie mogą zwrócić wbudowanej funkcji jako bloku, wpisu albo projektu.
+const own = (o, k) => !!o && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 
 // ---------- biblioteka ----------
-function exOf(id) { return (A && A.EX.find(e => e.id === id)) || CAT[id] || null; }
+function exOf(id) { return (A && A.EX.find(e => e.id === id)) || (own(CAT, id) ? CAT[id] : null); }
 function exName(id) { const e = exOf(id); return e ? e.name : id; }
 // Wszystkie ćwiczenia do wyboru w edytorze: najpierw spoza atlasu (pogrupowane), potem atlas rehabilitacji.
 function catalog() {
@@ -138,12 +140,12 @@ function catalog() {
   return out;
 }
 function getBlock(st, id) {
-  const o = st.blocks && st.blocks[id];
+  const o = own(st.blocks, id) ? st.blocks[id] : null;
   if (o && !o.del) return o;
-  return BUILTIN_BY[id] || null;
+  return own(BUILTIN_BY, id) ? BUILTIN_BY[id] : null;
 }
-const isBuiltin = id => !!BUILTIN_BY[id];
-const isEdited = (st, id) => isBuiltin(id) && !!(st.blocks && st.blocks[id] && !st.blocks[id].del);
+const isBuiltin = id => own(BUILTIN_BY, id);
+const isEdited = (st, id) => isBuiltin(id) && own(st.blocks, id) && !!st.blocks[id] && !st.blocks[id].del;
 // Ćwiczenia z ciągnięciem tylko po rehabilitacji.
 const unlocked = (st, b) => !b.afterRehab || !!st.rehabDone;
 function allBlocks(st) {
@@ -193,7 +195,7 @@ function dayItems(st, d) {
     return { k: 'p' + i + '-' + b, b, skip: false };
   });
 }
-function entryOf(st, d, k) { const l = st.blog && st.blog[d]; const e = l && l[k]; return e && !e.del ? e : null; }
+function entryOf(st, d, k) { const l = own(st.blog, d) ? st.blog[d] : null; const e = own(l, k) ? l[k] : null; return e && !e.del ? e : null; }
 // Dzień do wyświetlenia: zaplanowane bloki (z wpisem, jeśli jest) i dopisane poza planem.
 function dayView(st, d) {
   const items = dayItems(st, d).map(x => Object.assign(x, { block: getBlock(st, x.b), entry: entryOf(st, d, x.k) }));
@@ -449,7 +451,7 @@ function records(all, st) {
 // (id projektu). Projekt jest przejdzony od pierwszej takiej drogi w stylu OS, Flash albo RP. Próby, sesje i przejście
 // liczą się z dziennika za każdym razem, nic z tego nie jest zapisywane osobno.
 const PROJECT_PTS = 20;
-function getProject(st, id) { const p = st.projects && st.projects[id]; return p && !p.del ? p : null; }
+function getProject(st, id) { const p = own(st.projects, id) ? st.projects[id] : null; return p && !p.del ? p : null; }
 function saveProject(st, p, now) {
   st.projects = st.projects || {};
   const id = p.id || 'p' + Math.round(now || Date.now()).toString(36);
@@ -463,14 +465,14 @@ function deleteProject(st, id, now) { st.projects = st.projects || {}; st.projec
 // Wszystkie projekty z próbami: { id, name, grade, place, start, note, tries, sessions, last, sent: { d, k, s, tries } | null }.
 // Próby po przejściu już się nie liczą. Kolejność: w trakcie (najnowsza próba albo start na górze), potem przejdzone (najnowsze na górze).
 function projectList(st) {
-  const by = {};
+  const by = Object.create(null);
   Object.keys(st.projects || {}).forEach(id => {
     const p = getProject(st, id);
     if (p) by[id] = { id, name: p.name, grade: p.grade, place: p.place || null, start: p.start, note: p.note || '', tries: 0, sessions: 0, last: null, sent: null };
   });
   entries(st).forEach(x => {
     if (x.e.t !== 'wspin' || !x.e.rl) return;
-    const inSession = {};
+    const inSession = Object.create(null);
     x.e.rl.forEach(r => {
       const p = by[r.p];
       if (!p || p.sent) return;

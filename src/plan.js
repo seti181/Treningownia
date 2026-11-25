@@ -332,7 +332,7 @@ const BADGES = [
   { id: 'rekord10', name: '10 rekordów', desc: 'Dziesięć pobitych rekordów' }
 ];
 function entryPoints(sid, e) {
-  let p = SPTS[sid] || 10;
+  let p = Object.prototype.hasOwnProperty.call(SPTS, sid) ? SPTS[sid] : 10;
   if (e.partial) p = Math.round(p / 2);
   if (e.pain != null) p += PAIN_PTS;
   return p;

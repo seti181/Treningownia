@@ -73,7 +73,7 @@ dist/         build output, not in git
 - UI text: Polish, short, imperative ("Zapisz", "Trzymaj"), no emojis, decimal comma (66,4). Code comments: match the surrounding code (mostly Polish).
 - Keep it one self-contained HTML file (plus the PWA files): no frameworks, bundlers, SDKs or CDNs (Google Fonts is the one optional extra). Firebase is used through its REST APIs. Ask before adding any dependency.
 - Sources must not contain `</script` (the build refuses).
-- The page has a strict Content-Security-Policy (`CSP` in tools/build.js, docs/architecture.md → Security): no inline `on…=` handlers, no `eval`, and a new external address (an API, a font host) must be added there or the browser blocks it. Every string in HTML goes through `esc()`; everything loaded goes through `sanitize()`.
+- The page has a strict Content-Security-Policy (`CSP` in tools/build.js, docs/architecture.md → Security): no inline `on…=` handlers, no `eval`, and a new external address (an API, a font host) must be added there or the browser blocks it. Every string in HTML goes through `esc()`; everything loaded goes through `sanitize()`, which never accepts an `Object.prototype` name (`constructor`, `toString` …) as an id or key; look up state objects by own keys. A CSS selector built from data uses `CSS.escape`.
 - Tests and docs use made-up body numbers (for example 70 kg), never the owner's real ones.
 - A new state field goes into `defaults()` (plan.js), `sanitize()` and `merge()` (store.js) in the same change, with a merge test in tests/test-store.js. `sanitize()` keeps only known keys, so a field missing there is wiped on the next save.
 - Deletions that must sync are markers (`{del: true, at}`), not removed keys.

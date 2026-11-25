@@ -156,11 +156,13 @@ function renderPanel(name) {
   const ae = document.activeElement;
   let sel = null, caret = null;
   if (ae && box.contains(ae)) {
-    if (ae.id) sel = '#' + ae.id;
+    // wartości z atrybutów (np. id propozycji z tekstem powtórzeń) mogą mieć cudzysłów: zawsze przez CSS.escape
+    const q = v => '"' + cssEsc(String(v)) + '"';
+    if (ae.id) sel = '#' + cssEsc(ae.id);
     else if (ae.dataset && ae.dataset.act) {
-      sel = '[data-act="' + ae.dataset.act + '"]';
-      ['i', 'v', 's', 'd', 'k'].forEach(k => { if (ae.dataset[k] != null) sel += '[data-' + k + '="' + ae.dataset[k] + '"]'; });
-    } else if (ae.name) sel = '[name="' + ae.name + '"][value="' + ae.value + '"]';
+      sel = '[data-act=' + q(ae.dataset.act) + ']';
+      ['i', 'v', 's', 'd', 'k'].forEach(k => { if (ae.dataset[k] != null) sel += '[data-' + k + '=' + q(ae.dataset[k]) + ']'; });
+    } else if (ae.name) sel = '[name=' + q(ae.name) + '][value=' + q(ae.value) + ']';
     if (ae.tagName === 'INPUT' && ae.type === 'text') { try { caret = [ae.selectionStart, ae.selectionEnd]; } catch (e) { caret = null; } }
   }
   const t = shownDay, sync = SYNC[syncMode];
@@ -182,15 +184,18 @@ function renderPanel(name) {
   }
   stale[name] = false;
   if (sel) {
-    const el2 = box.querySelector(sel);
+    let el2 = null;
+    try { el2 = box.querySelector(sel); } catch (e) { el2 = null; }
     if (el2 && !el2.disabled) {
       el2.focus({ preventScroll: true });
       if (caret && el2.type === 'text') { try { el2.setSelectionRange(caret[0], caret[1]); } catch (e) { /* brak */ } }
     }
   }
 }
+const cssEsc = s => (window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\\n]/g, '\\$&'));
 function focusIn(q, select) {
-  const n = panels[tab] && panels[tab].querySelector(q);
+  let n = null;
+  try { n = panels[tab] && panels[tab].querySelector(q); } catch (e) { n = null; }
   if (!n) return;
   n.focus({ preventScroll: true });
   if (select && n.select) { try { n.select(); } catch (e) { /* brak */ } }
@@ -751,6 +756,8 @@ function readBackupFile(file) {
   const r = new FileReader();
   r.onload = () => {
     const res = S.readBackup(String(r.result || ''), today());
+    // przed potwierdzeniem: ile pozycji z telefonu wczytanie by usunęło (znaczniki usunięcia w kopii)
+    if (!res.error) res.loss = S.lossOf(state, S.merge(state, res.state));
     Object.assign(ui, res.error ? { bk: null, bkErr: res.error } : { bk: res, bkErr: '' });
     renderPanel('ustawienia');
     focusIn(res.error ? '[data-act="bk-pick"]' : '[data-act="bk-apply"]');

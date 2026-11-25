@@ -4,9 +4,14 @@
 const PL = G.PLAN;
 const KEY = 'treningownia-v1';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const SID = /^[a-z]{2,12}$/;
-const BID = /^[a-z0-9][a-z0-9-]{1,39}$/;
-const KID = /^[a-z0-9][a-z0-9:_-]{0,59}$/i;
+// Nazwy z Object.prototype („constructor”, „toString”, „__proto__”) nigdy nie są id ani kluczem: zwykły obiekt zwróciłby
+// dla nich wbudowaną funkcję zamiast braku wpisu (wrogi plik kopii psuł tak punkty i ekrany Dziś i Tydzień).
+const PROTO = k => k in Object.prototype;
+const own = (o, k) => !!o && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
+const idRe = re => ({ test: s => typeof s === 'string' && re.test(s) && !PROTO(s) });
+const SID = idRe(/^[a-z]{2,12}$/);
+const BID = idRe(/^[a-z0-9][a-z0-9-]{1,39}$/);
+const KID = idRe(/^[a-z0-9][a-z0-9:_-]{0,59}$/i);
 const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
 const clone = o => JSON.parse(JSON.stringify(o));
 const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
@@ -31,14 +36,14 @@ function cleanBlock(id, b) {
   if (!isObj(b)) return null;
   if (b.del) return { del: true, at: at(b) };
   const BL = G.BLOCKS;
-  if (!BL || BL.KINDS.indexOf(b.kind) < 0 || !BL.TRACKS[b.t]) return null;
+  if (!BL || BL.KINDS.indexOf(b.kind) < 0 || !own(BL.TRACKS, b.t)) return null;
   const o = { id, name: str(b.name, 60) || 'Blok', kind: b.kind, t: b.t, min: num(b.min, 0, 600) ? Math.round(b.min) : 0, note: str(b.note, 300), at: at(b) };
   if (num(b.km, 0.1, 200)) o.km = Math.round(b.km * 100) / 100;
   if (b.kind === 'timed' || (b.kind === 'run' && Array.isArray(b.items) && b.items.length)) {
     o.gap = num(b.gap, 0, 300) ? Math.round(b.gap) : 30;
     o.items = (Array.isArray(b.items) ? b.items : []).slice(0, 30).map(cleanItem).filter(Boolean);
   }
-  if (b.kind === 'run' && BL.ZONES && (BL.ZONES[b.zone] || b.zone === 'test')) o.zone = b.zone;
+  if (b.kind === 'run' && BL.ZONES && (own(BL.ZONES, b.zone) || b.zone === 'test')) o.zone = b.zone;
   if (b.after === 'test') o.after = 'test';
   return o;
 }
@@ -46,7 +51,7 @@ function cleanEntry(e) {
   if (!isObj(e)) return null;
   if (e.del) return { del: true, at: at(e) };
   const BL = G.BLOCKS;
-  if (!e.done || typeof e.b !== 'string' || !BID.test(e.b) || !BL || !BL.TRACKS[e.t]) return null;
+  if (!e.done || typeof e.b !== 'string' || !BID.test(e.b) || !BL || !own(BL.TRACKS, e.t)) return null;
   const o = { b: e.b, t: e.t, kind: BL.KINDS.indexOf(e.kind) >= 0 ? e.kind : 'simple', name: str(e.name, 60), done: true, at: at(e) };
   if (num(e.dur, 0, 86400)) o.dur = Math.round(e.dur);
   if (num(e.km, 0.01, 300)) o.km = Math.round(e.km * 100) / 100;
@@ -183,8 +188,8 @@ function sanitize(o, fallbackDay) {
   d.rehabDoneAt = +o.rehabDoneAt || 0;
   if (isObj(o.props)) Object.keys(o.props).slice(0, 500).forEach(id => {
     const p = o.props[id];
-    // '__proto__' podmieniłby prototyp obiektu props zamiast dodać wpis
-    if (typeof id !== 'string' || id.length > 80 || id === '__proto__' || !isObj(p)) return;
+    // '__proto__' podmieniłby prototyp obiektu props zamiast dodać wpis; inne nazwy z Object.prototype też odpadają
+    if (typeof id !== 'string' || id.length > 80 || PROTO(id) || !isObj(p)) return;
     if (p.del) { d.props[id] = { del: true, at: at(p) }; return; }
     if ((p.s === 'ok' || p.s === 'no') && typeof p.d === 'string' && DATE.test(p.d)) d.props[id] = { s: p.s, d: p.d, at: at(p), text: str(p.text, 200) };
   });
@@ -236,6 +241,18 @@ function readBackup(text, fallbackDay) {
   const st = sanitize(o.state, fallbackDay);
   return { state: st, exported: typeof o.exported === 'string' ? o.exported : '', counts: counts(st) };
 }
+// Ile pozycji z tego urządzenia zniknie po scaleniu z kopią: wpisy, pomiary, projekty i bloki, które kopia oznacza
+// jako usunięte, oraz sesje rehabilitacji, gdy w kopii historia była wyczyszczona (nowsza epoka). Pokazywane przed wczytaniem.
+function lossOf(local, merged) {
+  let n = 0;
+  const gone = (x, y) => isObj(x) && !x.del && (!isObj(y) || !!y.del);
+  const get = (o, a, b) => (o && o[a] && b !== undefined ? o[a][b] : o && o[a]);
+  Object.keys(local.log || {}).forEach(d => Object.keys(local.log[d]).forEach(s => { if (local.log[d][s].done && !get(merged.log, d, s)) n++; }));
+  Object.keys(local.weight || {}).forEach(d => { if (gone(local.weight[d], get(merged.weight, d))) n++; });
+  Object.keys(local.blog || {}).forEach(d => Object.keys(local.blog[d]).forEach(k => { if (gone(local.blog[d][k], get(merged.blog, d, k))) n++; }));
+  ['projects', 'blocks'].forEach(key => Object.keys(local[key] || {}).forEach(id => { if (gone(local[key][id], get(merged[key], id))) n++; }));
+  return n;
+}
 function counts(st) {
   let sessions = 0;
   Object.keys(st.log).forEach(d => Object.keys(st.log[d]).forEach(s => { if (st.log[d][s].done) sessions++; }));
@@ -244,7 +261,7 @@ function counts(st) {
   return { sessions, weights, days: PL.doneDays(st).length };
 }
 
-const API = { KEY, DATE, canon, sanitize, merge, clone, isObj, backup, backupName, readBackup, counts };
+const API = { KEY, DATE, canon, sanitize, merge, clone, isObj, backup, backupName, readBackup, counts, lossOf };
 G.STORE = API;
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

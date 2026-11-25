@@ -320,4 +320,36 @@ set15(15, 10, 230); hangs(10, 5, 231);
 check('added weight stops at +10 kg (owner to decide more)', !addP() && BL.HANG_ADD_MAX === 10);
 hAdd.rehabDone = null;
 check('rehab switched back on: a saved added weight becomes full weight', BL.hangKg(hAdd, hgw()) === 0);
+
+// wrogi plik kopii z nazwami z Object.prototype: nic z tego nie wchodzi do stanu, punkty są liczbą, ekrany się rysują
+require('../src/views.js'); require('../src/blocks-views.js'); const V = globalThis.VIEWS;
+const PD = '2026-11-25', pat = 1795500000000;
+const evilBk = S.readBackup(JSON.stringify({ app: 'treningownia', format: 1, exported: '2026-11-25T08:00:00Z', state: {
+  start: '2026-11-01', updated: pat,
+  blocks: { 'moj-x': { name: 'X', kind: 'simple', t: 'toString', at: pat }, constructor: { name: 'Y', kind: 'simple', t: 'bieg', at: pat },
+    'moj-r': { name: 'R', kind: 'run', t: 'bieg', zone: 'valueOf', at: pat } },
+  blog: { [PD]: { e1: { b: 'moj-x', t: 'hasOwnProperty', kind: 'simple', name: 'Y', done: true, at: pat, dur: 600 }, constructor: { b: 'bieg-spokojny', t: 'bieg', done: true, at: pat } } },
+  days: { [PD]: { items: [{ k: 'constructor', b: 'constructor' }, { k: 'a1', b: 'bieg-spokojny' }], at: pat } },
+  log: { [PD]: { constructor: { done: true, at: pat, dur: 600 } } },
+  projects: { constructor: { name: 'P', grade: '7a', start: PD, at: pat } },
+  props: { constructor: { s: 'ok', d: PD, at: pat }, toString: { s: 'ok', d: PD, at: pat } }
+} }), PD);
+const es = evilBk.state, protoKeys = ['constructor', 'toString', 'hasOwnProperty', 'valueOf'];
+const ownKeys = o => Object.keys(o || {});
+check('crafted backup: no Object.prototype names as ids, keys, tracks or zones', !evilBk.error && !es.blocks['moj-x'] && !ownKeys(es.blocks).some(k => protoKeys.indexOf(k) >= 0) && es.blocks['moj-r'] && !es.blocks['moj-r'].zone
+  && !ownKeys(es.blog[PD]).some(k => protoKeys.indexOf(k) >= 0) && es.days[PD].items.length === 1 && !ownKeys(es.log[PD]).length && !ownKeys(es.projects).length && !ownKeys(es.props).length, JSON.stringify({ b: ownKeys(es.blocks), d: es.days[PD] }));
+const em = S.merge(S.sanitize({}, PD), es), eprog = PL.progress(em, PD);
+check('crafted backup: points stay a number, no built-in function comes back as a block', typeof eprog.total === 'number' && isFinite(eprog.total) && BL.getBlock(em, 'constructor') === null && BL.getProject(em, 'constructor') === null && BL.entryOf(em, PD, 'constructor') === null, String(eprog.total));
+let renderErr = '';
+try { V.todayHTML(em, PD, '', pat, eprog, {}); V.weekHTML(em, PD, {}, eprog); V.journalHTML(em, PD, eprog, {}); V.progressHTML(em, PD, eprog); V.projectsHTML(em, PD, {}); } catch (e) { renderErr = e.message; }
+check('crafted backup: Dziś, Tydzień, Dziennik, Postęp and Projekty still render', !renderErr, renderErr);
+
+// wczytanie kopii: ile pozycji z telefonu by zniknęło (pokazywane przed potwierdzeniem)
+const mine = S.sanitize({}, PD); PL.setWeight(mine, '2026-11-24', 70, 1000);
+BL.logBlock(mine, '2026-11-24', 'k1', BL.getBlock(mine, 'bieg-spokojny'), { km: 5 }, 1000); mine.updated = 1000;
+const delBk = S.readBackup(JSON.stringify({ app: 'treningownia', format: 1, exported: 'x', state: { start: '2026-11-01', updated: 2000,
+  weight: { '2026-11-24': { del: true, at: 9e15 } }, blog: { '2026-11-24': { k1: { del: true, at: 9e15 } } } } }), PD);
+check('backup import: a file with deletion markers would remove 2 items, and says so', S.lossOf(mine, S.merge(mine, delBk.state)) === 2);
+const ownBk = S.readBackup(JSON.stringify(S.backup(mine, 3000)), PD);
+check('backup import: your own backup removes nothing', S.lossOf(mine, S.merge(mine, ownBk.state)) === 0);
 finish([]);
